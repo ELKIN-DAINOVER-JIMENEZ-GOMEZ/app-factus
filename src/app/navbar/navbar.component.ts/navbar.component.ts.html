@@ -1,0 +1,157 @@
+<nav class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+  <div class="max-w-screen-2xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
+
+    <!-- LEFT: Logo + Nav -->
+    <div class="flex items-center gap-8 flex-1">
+      <!-- Logo -->
+      <a routerLink="/dashboard" class="flex items-center gap-3 text-gray-900 font-semibold text-lg hover:opacity-80">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="6" fill="#5C6AC4"/>
+          <path d="M10 16l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="hidden md:inline">FactusCMS</span>
+      </a>
+
+      <!-- Desktop Nav -->
+      <div class="hidden lg:flex items-center gap-1">
+        <a *ngFor="let item of navItems"
+           [routerLink]="item.route"
+           class="flex items-center gap-2 px-3.5 py-2.5 rounded-md text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition"
+           [class]="isActiveRoute(item.route) ? 'text-indigo-600 bg-indigo-50' : ''">
+          <!-- ICONS (mismos SVG que tenías) -->
+          <svg *ngIf="item.icon === 'home'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M3 7l7-4 7 4v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M7 17V11h6v6" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'receipt'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M7 4h8a2 2 0 012 2v10l-2-1-2 1-2-1-2 1-2-1-2 1V6a2 2 0 012-2z" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M7 8h6M7 12h6" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'document'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M5 2h8l4 4v10a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2z" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M13 2v4h4M7 10h6M7 14h4" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'users'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M14 17v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M10 7a4 4 0 11-8 0 4 4 0 018 0zM19 17v-2a4 4 0 00-3-3.87M14 3.13a4 4 0 010 7.75" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'cube'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M3 7l7-4 7 4M3 7l7 4m-7-4v10l7 4m7-14l-7 4m7-4v10l-7 4m0-8v8" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'shop'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M3 3h14l-1 10H4L3 3zM3 3l1-2h12l1 2M7 13v6M13 13v6" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'chart'" width="20" height="20" fill="none" stroke="currentColor">
+            <path d="M3 17V9l4-4 4 4 6-6v14H3z" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg *ngIf="item.icon === 'settings'" width="20" height="20" fill="none" stroke="currentColor">
+            <circle cx="10" cy="10" r="3" stroke-width="1.5"/>
+            <path d="M10 1v3M10 16v3M16.66 5.34l-2.12 2.12M5.46 14.54l-2.12 2.12M19 10h-3M4 10H1M16.66 14.66l-2.12-2.12M5.46 5.46L3.34 3.34" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+
+          <span class="whitespace-nowrap">{{ item.label }}</span>
+          <span *ngIf="item.badge" class="ml-1 bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+            {{ item.badge }}
+          </span>
+        </a>
+      </div>
+    </div>
+
+    <!-- RIGHT: Icons + User -->
+    <div class="flex items-center gap-3">
+
+      <!-- Notifications -->
+      <button class="w-9 h-9 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition relative"
+              title="Notificaciones">
+        <svg width="20" height="20" fill="none" stroke="currentColor">
+          <path d="M15 6a5 5 0 00-10 0c0 4-2 5-2 5h14s-2-1-2-5zM11.73 15a2 2 0 01-3.46 0" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="absolute top-2 right-2 w-2 h-2 bg-red-600 border-2 border-white rounded-full"></span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="relative">
+        <button class="flex items-center gap-3 pl-2 pr-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                (click)="toggleUserMenu($event)">
+          <div class="w-8 h-8 rounded-md bg-gradient-to-br from-indigo-500 to-indigo-600 text-white flex items-center justify-center text-sm font-semibold">
+            {{ getUserInitials() }}
+          </div>
+          <div class="hidden sm:flex flex-col items-start leading-tight">
+            <span class="text-sm font-medium text-gray-900">{{ currentUser?.username }}</span>
+            <span class="text-xs text-gray-500">{{ currentUser?.email }}</span>
+          </div>
+          <svg width="16" height="16" fill="none" stroke="currentColor" class="text-gray-400 group-hover:translate-y-0.5 transition">
+            <path d="M4 6l4 4 4-4" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <!-- Dropdown -->
+        <div *ngIf="showUserMenu"
+             class="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-lg shadow-lg p-2 animate-fade-in z-50">
+          <div class="px-3 py-2">
+            <p class="text-sm font-semibold text-gray-900">{{ currentUser?.username }}</p>
+            <p class="text-xs text-gray-500">{{ currentUser?.email }}</p>
+          </div>
+          <div class="border-t border-gray-200 my-1"></div>
+          <a routerLink="/profile" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-900 hover:bg-gray-50">
+            <svg width="16" height="16" fill="none" stroke="currentColor">
+              <circle cx="8" cy="5" r="3" stroke-width="1.5"/>
+              <path d="M2 14a6 6 0 0112 0" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Mi perfil
+          </a>
+          <a routerLink="/settings" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-gray-900 hover:bg-gray-50">
+            <svg width="16" height="16" fill="none" stroke="currentColor">
+              <circle cx="8" cy="8" r="2.5" stroke-width="1.5"/>
+              <path d="M13 8h1M2 8h1M8 2V1M8 15v-1M11.3 4.7l.7-.7M3.3 11.3l-.7.7M11.3 11.3l.7.7M3.3 4.7l-.7-.7" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Configuración
+          </a>
+          <div class="border-t border-gray-200 my-1"></div>
+          <button (click)="logout()" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-red-600 hover:bg-red-50 w-full text-left">
+            <svg width="16" height="16" fill="none" stroke="currentColor">
+              <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3M11 11l3-3-3-3M14 8H6" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      <!-- Mobile hamburger -->
+      <button class="lg:hidden w-10 h-10 flex items-center justify-center rounded-md text-gray-900 hover:bg-gray-50"
+              (click)="toggleMobileMenu()">
+        <svg *ngIf="!isMobileMenuOpen" width="24" height="24" fill="none" stroke="currentColor">
+          <path d="M3 6h18M3 12h18M3 18h18" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg *ngIf="isMobileMenuOpen" width="24" height="24" fill="none" stroke="currentColor">
+          <path d="M6 6l12 12M6 18L18 6" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Menu -->
+  <div *ngIf="isMobileMenuOpen" class="lg:hidden flex flex-col gap-1 px-4 py-3 border-t border-gray-200 bg-white animate-slide-down">
+    <a *ngFor="let item of navItems"
+       [routerLink]="item.route"
+       class="flex items-center justify-between px-3 py-3 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition"
+       [class]="isActiveRoute(item.route) ? 'text-indigo-600 bg-indigo-50' : ''">
+      <span>{{ item.label }}</span>
+      <span *ngIf="item.badge" class="bg-indigo-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+        {{ item.badge }}
+      </span>
+    </a>
+  </div>
+</nav>
+
+<style>
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slide-down {
+  from { max-height: 0; opacity: 0; }
+  to { max-height: 500px; opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out; }
+.animate-slide-down { animation: slide-down 0.3s ease-out; }
+</style>
