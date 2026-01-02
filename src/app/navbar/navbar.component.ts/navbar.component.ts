@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
-import { AuthServices, User } from '../../auth-services';
+import { AuthServices, User } from '../../services/auth-services';
 import { filter } from 'rxjs/operators';
 
 interface NavItem {
@@ -12,12 +12,12 @@ interface NavItem {
 }
 
 @Component({
-  selector: 'app-navbar.component.ts',
+  selector: 'app-navbar',
   imports: [CommonModule, RouterModule],
-  templateUrl: './navbar.component.ts.html',
-  styleUrl: './navbar.component.ts.css',
+  templateUrl: './navbar.component.html',
+  
 })
-export class NavbarComponentTs implements OnInit {
+export class NavbarComponent implements OnInit {
 
  currentUser: User | null = null;
   currentRoute = '';
@@ -25,11 +25,7 @@ export class NavbarComponentTs implements OnInit {
   isMobileMenuOpen = false;
 
   navItems: NavItem[] = [
-    {
-      label: 'Dashboard',
-      icon: 'home',
-      route: '/dashboard'
-    },
+    
     {
       label: 'Facturas',
       icon: 'receipt',

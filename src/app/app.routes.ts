@@ -17,14 +17,21 @@ export const routes: Routes = [
 
   // Dashboard (protegido)
   {
-    path: 'dashboard',
+    path: '',
     canActivate: [authGuard],
-    loadComponent: () => import('./navbar/navbar.component.ts/navbar.component.ts').then(m => m.NavbarComponentTs)
+    loadComponent: () => import('./layout/layout').then(m => m.Layout),
+    children: [
+  {
+    path: 'invoices',
+    canActivate: [authGuard],
+    loadComponent: () => import('./invoices/invoice.component.ts/invoice.component.ts').then(m => m.CreateInvoiceComponent)
   },
 
   // 404
   {
     path: '**',
     redirectTo: 'login'
+  }
+]
   }
 ];

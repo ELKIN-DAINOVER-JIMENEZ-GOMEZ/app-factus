@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
-import { AuthServices } from '../../auth-services';
+import { AuthServices } from '../../services/auth-services';
 import { Subject, takeUntil } from 'rxjs';
 import { trigger, transition, style, animate, keyframes } from '@angular/animations';
 
