@@ -412,7 +412,7 @@
 
 <!-- Modal de Clientes -->
 <div *ngIf="showClientModal" 
-     class="fixed inset-0 bg-black/5 bg-opacity-1 flex items-center justify-center z-50 p-4"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
      (click)="closeClientModal()">
   <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col"
        (click)="$event.stopPropagation()">
@@ -428,7 +428,7 @@
     
     <!-- Búsqueda -->
     <div class="p-6 border-b border-gray-200">
-      <div class="flex gap-2">
+      <div class="flex gap-2 mb-4">
         <input type="text" 
                [(ngModel)]="clientSearch"
                (keyup.enter)="onClientSearch()"
@@ -440,6 +440,16 @@
           {{ searchingClients ? 'Buscando...' : 'Buscar' }}
         </button>
       </div>
+      
+      <!-- Botón para crear cliente nuevo -->
+      <a routerLink="/clients/create" 
+         target="_blank"
+         class="inline-flex items-center gap-2 px-4 py-2 text-sm text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition">
+        <svg width="16" height="16" fill="none" stroke="currentColor">
+          <path d="M8 1v14M1 8h14" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        Crear Cliente Nuevo
+      </a>
     </div>
 
     <!-- Lista -->
@@ -469,7 +479,7 @@
 
 <!-- Modal de Productos -->
 <div *ngIf="showProductModal" 
-     class="fixed inset-0 bg-black/15 bg-opacity-50 flex items-center justify-center z-50 p-4"
+     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
      (click)="closeProductModal()">
   <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col"
        (click)="$event.stopPropagation()">

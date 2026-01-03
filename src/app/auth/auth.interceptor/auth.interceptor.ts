@@ -1,45 +1,69 @@
-import { HttpInterceptorFn, HttpErrorResponse } from '@angular/common/http';
-import { inject } from '@angular/core';
-import { AuthServices } from '../../services/auth-services';
-import { catchError, throwError } from 'rxjs';
+/**
+ * HTTP Interceptor para Autenticación
+ * Ubicación: src/app/interceptors/auth.interceptor.ts
+ * 
+ * Agrega automáticamente el token JWT a todas las peticiones HTTP
+ */
 
-export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const authService = inject(AuthServices);
-  const token = authService.getToken();
+import { Injectable } from '@angular/core';
+import {
+  HttpInterceptor,
+  HttpRequest,
+  HttpHandler,
+  HttpEvent,
+  HttpErrorResponse
+} from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { Router } from '@angular/router';
 
-  // No agregar token a peticiones de auth
-  const isAuthRequest = req.url.includes('/api/auth/');
-
-  // Clonar request y agregar token si existe
-  let authReq = req;
+@Injectable()
+export class AuthInterceptor implements HttpInterceptor {
   
-  if (token && !isAuthRequest) {
-    authReq = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
-      }
-    });
+  constructor(private router: Router) {}
+
+  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+    // 🔍 Obtener token del localStorage
+    const token = localStorage.getItem('jwt_token');
+    
+    // 📝 Log para debugging (eliminar en producción)
+    if (token) {
+      console.log('🔐 Token encontrado:', token.substring(0, 30) + '...');
+    } else {
+      console.warn('⚠️ No hay token JWT en localStorage');
+    }
+
+    // 🔐 Clonar la petición y agregar el token
+    let clonedReq = req;
+    
+    if (token) {
+      clonedReq = req.clone({
+        setHeaders: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('✅ Token agregado a:', req.url);
+    }
+
+    // 🚀 Enviar la petición
+    return next.handle(clonedReq).pipe(
+      catchError((error: HttpErrorResponse) => {
+        // ❌ Si es error 401 o 403, redirigir al login
+        if (error.status === 401 || error.status === 403) {
+          console.error('🚫 Token inválido o expirado. Redirigiendo al login...');
+          
+          // Limpiar localStorage
+          localStorage.removeItem('jwt_token');
+          localStorage.removeItem('current_user');
+          
+          // Redirigir al login
+          this.router.navigate(['/login']);
+        }
+        
+        return throwError(() => error);
+      })
+    );
   }
-
-  // Log para debugging (quitar en producción)
-  console.log('🔄 HTTP Request:', {
-    method: req.method,
-    url: req.url,
-    hasToken: !!token,
-    isAuthRequest
-  });
-
-  return next(authReq).pipe(
-    catchError((error: HttpErrorResponse) => {
-      console.error('❌ HTTP Error:', error);
-
-      // Si es 401 en request no-auth, cerrar sesión
-      if (error.status === 401 && !isAuthRequest) {
-        console.warn('⚠️ Token inválido, cerrando sesión...');
-        authService.logout();
-      }
-
-      return throwError(() => error);
-    })
-  );
-};
+}

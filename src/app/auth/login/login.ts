@@ -44,7 +44,7 @@ export class Login implements OnInit, OnDestroy {
   loading = false;
   success = false;
   error = '';
-  returnUrl = '/dashboard';
+  returnUrl = '/invoices';
   showPassword = false;
   
   // Subject para cleanup de subscripciones
@@ -76,7 +76,7 @@ export class Login implements OnInit, OnDestroy {
     });
 
     // Obtener URL de retorno de query params
-    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/inovices';
     console.log('📍 Return URL:', this.returnUrl);
 
     // Si ya está autenticado, redirigir inmediatamente
@@ -190,27 +190,7 @@ export class Login implements OnInit, OnDestroy {
     console.log('👁️ Password visible:', this.showPassword);
   }
 
-  /**
-   * 🧪 Llenar con credenciales demo
-   */
-  fillDemo(): void {
-    console.log('🧪 Llenando credenciales demo...');
-    
-    this.loginForm.patchValue({
-      identifier: 'admin@factus.com',
-      password: 'Admin123'
-    });
-
-    // Marcar campos como touched
-    this.loginForm.markAllAsTouched();
-
-    // Focus en el botón de submit
-    setTimeout(() => {
-      const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-      submitBtn?.focus();
-    }, 100);
-  }
-
+ 
   /**
    * ✅ Marcar todos los campos como touched
    */

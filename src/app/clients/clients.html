@@ -1,0 +1,384 @@
+<!-- Componente de Crear Cliente -->
+<div class="min-h-screen bg-gray-50 py-8">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Nuevo Cliente</h1>
+          <p class="mt-1 text-sm text-gray-500">
+            Registra un nuevo cliente para facturación electrónica
+          </p>
+        </div>
+        <button (click)="cancel()" 
+                class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+          <span class="flex items-center gap-2">
+            <svg width="20" height="20" fill="none" stroke="currentColor">
+              <path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Cancelar
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mensajes -->
+    <div *ngIf="errors.length > 0" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor">
+          <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+        </svg>
+        <div class="flex-1">
+          <h3 class="text-sm font-semibold text-red-800">Error</h3>
+          <ul class="mt-1 text-sm text-red-700 list-disc list-inside">
+            <li *ngFor="let error of errors">{{ error }}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="successMessage" class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+        </svg>
+        <p class="text-sm text-green-800">{{ successMessage }}</p>
+      </div>
+    </div>
+
+    <!-- Formulario -->
+    <form [formGroup]="clientForm" class="space-y-6">
+      
+      <!-- Sección: Información Básica -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Información Básica</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Nombre completo -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Nombre Completo <span class="text-red-600">*</span>
+            </label>
+            <input type="text" 
+                   formControlName="nombre_completo"
+                   placeholder="Juan Pérez o Empresa S.A.S."
+                   [class.border-red-500]="isFieldInvalid('nombre_completo')"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <p *ngIf="isFieldInvalid('nombre_completo')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('nombre_completo') }}
+            </p>
+          </div>
+
+          <!-- Tipo de persona -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Persona <span class="text-red-600">*</span>
+            </label>
+            <select formControlName="tipo_persona"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              <option *ngFor="let tipo of tiposPersona" [value]="tipo.value">
+                {{ tipo.label }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Tipo de documento -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Documento <span class="text-red-600">*</span>
+            </label>
+            <select formControlName="tipo_documento"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              <option *ngFor="let tipo of tiposDocumento" [value]="tipo.value">
+                {{ tipo.label }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Número de documento -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Número de Documento <span class="text-red-600">*</span>
+            </label>
+            <div class="relative">
+              <input type="text" 
+                     formControlName="numero_documento"
+                     placeholder="1234567890"
+                     [class.border-red-500]="isFieldInvalid('numero_documento') || documentExists"
+                     [class.border-green-500]="clientForm.get('numero_documento')?.valid && !documentExists && !checkingDocument"
+                     class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              
+              <!-- Indicador de verificación -->
+              <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg *ngIf="checkingDocument" class="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg *ngIf="!checkingDocument && clientForm.get('numero_documento')?.valid && !documentExists" 
+                     class="h-5 w-5 text-green-600" fill="none" stroke="currentColor">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                </svg>
+                <svg *ngIf="!checkingDocument && documentExists" 
+                     class="h-5 w-5 text-red-600" fill="none" stroke="currentColor">
+                  <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            <p *ngIf="documentExists" class="mt-1 text-sm text-red-600">
+              Este documento ya está registrado
+            </p>
+            <p *ngIf="isFieldInvalid('numero_documento')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('numero_documento') }}
+            </p>
+          </div>
+
+          <!-- Dígito de verificación (solo para NIT) -->
+          <div *ngIf="clientForm.get('tipo_documento')?.value === 'NIT'">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Dígito de Verificación <span class="text-red-600">*</span>
+            </label>
+            <input type="text" 
+                   formControlName="digito_verificacion"
+                   maxlength="1"
+                   readonly
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+            <p *ngIf="autoCalculatedDV" class="mt-1 text-xs text-gray-500">
+              Calculado automáticamente: {{ autoCalculatedDV }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Información Jurídica (si es persona jurídica) -->
+      <div *ngIf="clientForm.get('tipo_persona')?.value === 'Juridica'" 
+           class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Información Jurídica</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Razón social -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Razón Social <span class="text-red-600">*</span>
+            </label>
+            <input type="text" 
+                   formControlName="razon_social"
+                   placeholder="Empresa S.A.S."
+                   [class.border-red-500]="isFieldInvalid('razon_social')"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <p *ngIf="isFieldInvalid('razon_social')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('razon_social') }}
+            </p>
+          </div>
+
+          <!-- Nombre comercial -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Nombre Comercial
+            </label>
+            <input type="text" 
+                   formControlName="nombre_comercial"
+                   placeholder="Nombre con el que opera comercialmente"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Contacto -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Información de Contacto</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Email -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Email <span class="text-red-600">*</span>
+            </label>
+            <div class="relative">
+              <input type="email" 
+                     formControlName="email"
+                     placeholder="email@ejemplo.com"
+                     [class.border-red-500]="isFieldInvalid('email') || emailExists"
+                     [class.border-green-500]="clientForm.get('email')?.valid && !emailExists && !checkingEmail"
+                     class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              
+              <!-- Indicador de verificación -->
+              <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg *ngIf="checkingEmail" class="animate-spin h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg *ngIf="!checkingEmail && clientForm.get('email')?.valid && !emailExists" 
+                     class="h-5 w-5 text-green-600" fill="none" stroke="currentColor">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                </svg>
+                <svg *ngIf="!checkingEmail && emailExists" 
+                     class="h-5 w-5 text-red-600" fill="none" stroke="currentColor">
+                  <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2"/>
+                </svg>
+              </div>
+            </div>
+            <p *ngIf="emailExists" class="mt-1 text-sm text-red-600">
+              Este email ya está registrado
+            </p>
+            <p *ngIf="isFieldInvalid('email')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('email') }}
+            </p>
+          </div>
+
+          <!-- Teléfono -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono
+            </label>
+            <input type="tel" 
+                   formControlName="telefono"
+                   placeholder="3001234567"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Dirección -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Dirección</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Dirección completa -->
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Dirección Completa <span class="text-red-600">*</span>
+            </label>
+            <input type="text" 
+                   formControlName="direccion"
+                   placeholder="Calle 123 #45-67, Apartamento 101"
+                   [class.border-red-500]="isFieldInvalid('direccion')"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+            <p *ngIf="isFieldInvalid('direccion')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('direccion') }}
+            </p>
+          </div>
+
+          <!-- Ciudad -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Ciudad <span class="text-red-600">*</span>
+            </label>
+            <select formControlName="ciudad"
+                    (change)="onCiudadChange($event)"
+                    [class.border-red-500]="isFieldInvalid('ciudad')"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              <option value="">Selecciona una ciudad</option>
+              <option *ngFor="let ciudad of ciudades" [value]="ciudad.nombre">
+                {{ ciudad.nombre }} - {{ ciudad.departamento }}
+              </option>
+            </select>
+            <p *ngIf="isFieldInvalid('ciudad')" class="mt-1 text-sm text-red-600">
+              {{ getFieldError('ciudad') }}
+            </p>
+          </div>
+
+          <!-- Departamento -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Departamento
+            </label>
+            <input type="text" 
+                   formControlName="departamento"
+                   readonly
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+            <p class="mt-1 text-xs text-gray-500">Se completa automáticamente</p>
+          </div>
+
+          <!-- Código ciudad (oculto) -->
+          <input type="hidden" formControlName="ciudad_codigo">
+
+          <!-- Código postal -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Código Postal
+            </label>
+            <input type="text" 
+                   formControlName="codigo_postal"
+                   placeholder="110111"
+                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Información Fiscal -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Información Fiscal</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Régimen fiscal -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Régimen Fiscal <span class="text-red-600">*</span>
+            </label>
+            <select formControlName="regimen_fiscal"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+              <option *ngFor="let regimen of regimenesFiscales" [value]="regimen.value">
+                {{ regimen.label }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Estado -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Estado
+            </label>
+            <div class="flex items-center gap-3 h-[42px]">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" 
+                       formControlName="activo"
+                       class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+              <span class="text-sm font-medium" [class.text-green-600]="clientForm.get('activo')?.value" [class.text-gray-500]="!clientForm.get('activo')?.value">
+                {{ clientForm.get('activo')?.value ? 'Activo' : 'Inactivo' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Notas Adicionales -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Notas Adicionales</h2>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Notas u Observaciones
+          </label>
+          <textarea formControlName="notas"
+                    rows="4"
+                    placeholder="Información adicional sobre el cliente..."
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+        </div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex items-center justify-end gap-3 pb-8">
+        <button type="button" 
+                (click)="cancel()"
+                class="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium">
+          Cancelar
+        </button>
+        <button type="button" 
+                (click)="saveAndNew()"
+                [disabled]="saving || clientForm.invalid || documentExists || emailExists"
+                class="px-6 py-3 text-indigo-700 bg-indigo-50 border border-indigo-300 rounded-lg hover:bg-indigo-100 transition font-medium disabled:opacity-50">
+          Guardar y Crear Otro
+        </button>
+        <button type="button" 
+                (click)="save()"
+                [disabled]="saving || clientForm.invalid || documentExists || emailExists"
+                class="px-6 py-3 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition font-medium disabled:opacity-50 shadow-sm">
+          {{ saving ? 'Guardando...' : 'Guardar Cliente' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

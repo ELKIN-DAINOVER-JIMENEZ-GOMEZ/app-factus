@@ -1,15 +1,23 @@
+/**
+ * Servicio de Facturas para Angular
+ * Ubicación: src/app/services/invoice.service.ts
+ * 
+ * Maneja todas las operaciones CRUD de facturas
+ * y la comunicación con Strapi + Factus API
+ */
+
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
-
+// ============================================
 // INTERFACES
-
+// ============================================
 
 export interface Client {
-  id: number;
+  id: string;
   nombre_completo: string;
   tipo_documento: 'CC' | 'NIT' | 'CE' | 'TI' | 'PP' | 'PEP';
   numero_documento: string;
@@ -30,7 +38,7 @@ export interface Client {
 }
 
 export interface Product {
-  id: number;
+  id: string;
   codigo: string;
   nombre: string;
   descripcion?: string;
@@ -49,7 +57,7 @@ export interface Product {
 }
 
 export interface InvoiceItem {
-  id?: number;
+  id?: string;
   codigo_producto: string;
   nombre_producto: string;
   descripcion?: string;
@@ -75,7 +83,7 @@ export interface InvoiceItem {
 }
 
 export interface Invoice {
-  id?: number;
+  id?: string;
   numero_factura?: string;
   prefijo?: string;
   consecutivo?: number;
@@ -153,8 +161,15 @@ export class InvoiceService {
   // Subject para actualizar lista de facturas
   private invoicesUpdated = new BehaviorSubject<boolean>(false);
   public invoicesUpdated$ = this.invoicesUpdated.asObservable();
+  
+  // Subject para actualizar lista de clientes (desde create-client)
+  private clientsUpdatedSubject = new BehaviorSubject<boolean>(false);
+  public clientsUpdated$ = this.clientsUpdatedSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // Escuchar cambios del ClientService
+    // Se conectará automáticamente cuando se use el ClientService
+  }
 
   // ============================================
   // MÉTODOS CRUD DE FACTURAS
@@ -231,7 +246,7 @@ export class InvoiceService {
   /**
    * ✏️ Actualizar factura
    */
-  updateInvoice(id: number, invoice: Partial<Invoice>): Observable<InvoiceResponse> {
+  updateInvoice(id: string, invoice: Partial<Invoice>): Observable<InvoiceResponse> {
     console.log(`✏️ Actualizando factura ${id}...`);
 
     const payload = {
@@ -254,7 +269,7 @@ export class InvoiceService {
   /**
    * 🗑️ Eliminar factura
    */
-  deleteInvoice(id: number): Observable<any> {
+  deleteInvoice(id: string): Observable<any> {
     console.log(`🗑️ Eliminando factura ${id}...`);
 
     return this.http.delete(
@@ -276,7 +291,7 @@ export class InvoiceService {
   /**
    * 📤 Emitir factura a Factus/DIAN
    */
-  emitInvoice(id: number): Observable<EmissionResponse> {
+  emitInvoice(id: string): Observable<EmissionResponse> {
     console.log(`📤 Emitiendo factura ${id} a Factus...`);
 
     return this.http.post<EmissionResponse>(

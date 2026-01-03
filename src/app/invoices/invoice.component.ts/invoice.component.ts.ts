@@ -1,3 +1,8 @@
+/**
+ * Componente de Crear Factura
+ * Ubicación: src/app/components/invoices/create-invoice.component.ts
+ */
+
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -19,12 +24,8 @@ interface FormInvoiceItem extends InvoiceItem {
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule, FormsModule],
   templateUrl: './invoice.component.html',
-  styleUrls: ['./invoice.component.css']
+  
 })
-
-
-
-
 export class CreateInvoiceComponent implements OnInit {
   invoiceForm!: FormGroup;
   
@@ -79,6 +80,13 @@ export class CreateInvoiceComponent implements OnInit {
     this.initForm();
     this.loadClients();
     this.loadProducts();
+    
+    // Suscribirse a actualizaciones de clientes
+    this.invoiceService.clientsUpdated$.subscribe(updated => {
+      if (updated) {
+        this.loadClients();
+      }
+    });
   }
 
   // ============================================
@@ -178,7 +186,7 @@ export class CreateInvoiceComponent implements OnInit {
   // ============================================
 
   onClientChange(event: any): void {
-    const clientId = parseInt(event.target.value);
+    const clientId = event.target.value;
     this.selectedClient = this.clients.find(c => c.id === clientId) || null;
     console.log('Cliente seleccionado:', this.selectedClient);
   }
