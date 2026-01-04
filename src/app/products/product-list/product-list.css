@@ -1,0 +1,193 @@
+
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+tbody tr {
+  animation: fadeIn 0.3s ease-out;
+}
+
+tbody tr {
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    background-color: #f9fafb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  }
+}
+
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  
+  &.badge-green {
+    background-color: #d1fae5;
+    color: #065f46;
+  }
+  
+  &.badge-blue {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+  
+  &.badge-gray {
+    background-color: #f3f4f6;
+    color: #374151;
+  }
+  
+  &.badge-red {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+}
+
+
+.action-button {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    transform: scale(1.1);
+  }
+  
+  &.edit-button {
+    color: #4f46e5;
+    
+    &:hover {
+      background-color: #eef2ff;
+    }
+  }
+  
+  &.delete-button {
+    color: #dc2626;
+    
+    &:hover {
+      background-color: #fef2f2;
+    }
+  }
+}
+
+
+.loader {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+.stat-card {
+  transition: all 0.2s ease-in-out;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+}
+
+
+.search-wrapper {
+  position: relative;
+  
+  input {
+    padding-left: 2.5rem;
+  }
+  
+  svg {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+    
+    &:hover {
+      background: #555;
+    }
+  }
+}
+
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .table-container {
+    overflow: visible;
+  }
+  
+  tbody tr {
+    page-break-inside: avoid;
+  }
+}
+
+
+@media (max-width: 1024px) {
+  .product-card {
+    transition: all 0.2s ease-in-out;
+    
+    &:hover {
+      background-color: #f9fafb;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+  }
+}
+
+
+.empty-state {
+  svg {
+    opacity: 0.5;
+  }
+}
+
+
+.pagination-button {
+  transition: all 0.2s ease-in-out;
+  
+  &:not(:disabled):hover {
+    background-color: #f3f4f6;
+    border-color: #9ca3af;
+  }
+  
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
