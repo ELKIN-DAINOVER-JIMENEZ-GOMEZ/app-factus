@@ -29,6 +29,11 @@ export const routes: Routes = [
     loadComponent: () => import('./invoices/invoice.component.ts/invoice.component.ts').then(m => m.CreateInvoiceComponent)
   },
   {
+  path: 'invoices/:id',
+  canActivate: [authGuard],
+  loadComponent: () => import('./invoices/invoice.component.ts/invoice.component.ts').then(m => m.CreateInvoiceComponent)
+},
+  {
     path: 'clients',
     canActivate: [authGuard],
     loadComponent: () => import('./clients/clients').then(m => m.CreateClientComponent)
