@@ -335,6 +335,14 @@ export class InvoiceService {
   private prepareInvoicePayload(invoice: Invoice): any {
     const { invoice_items, ...invoiceData } = invoice;
 
+    // 🆕 Generar número de factura único si no existe
+    if (!invoiceData.numero_factura) {
+      const timestamp = Date.now();
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      invoiceData.numero_factura = `FV-${timestamp}-${random}`;
+      console.log('🔢 Número de factura generado:', invoiceData.numero_factura);
+    }
+
     // Asegurar que client sea solo el ID
     if (typeof invoiceData.client === 'object' && invoiceData.client !== null) {
       invoiceData.client = (invoiceData.client as any).id;
@@ -381,20 +389,18 @@ export class InvoiceService {
     pageSize?: number;
     estado?: string;
   }): Observable<PaginatedResponse<Invoice>> {
+    // Usar la ruta personalizada que no requiere autenticación de Strapi
     const queryParams: any = {
-      'pagination[page]': params?.page || 1,
-      'pagination[pageSize]': params?.pageSize || 25,
-      'populate[client]': '*',
-      'populate[invoice_items][populate][product]': '*',
-      'sort': 'createdAt:desc'
+      page: params?.page || 1,
+      pageSize: params?.pageSize || 25,
     };
 
     if (params?.estado) {
-      queryParams['filters[estado_local][$eq]'] = params.estado;
+      queryParams.estado = params.estado;
     }
 
     return this.http.get<PaginatedResponse<Invoice>>(
-      `${this.apiUrl}/api/invoices`,
+      `${this.apiUrl}/api/invoices/list`,
       { 
         headers: this.getHeaders(),
         params: queryParams
@@ -404,13 +410,9 @@ export class InvoiceService {
 
   getInvoice(id: number): Observable<SingleResponse<Invoice>> {
     return this.http.get<SingleResponse<Invoice>>(
-      `${this.apiUrl}/api/invoices/${id}`,
+      `${this.apiUrl}/api/invoices/detail/${id}`,
       {
-        headers: this.getHeaders(),
-        params: {
-          'populate[client]': '*',
-          'populate[invoice_items][populate][product]': '*'
-        }
+        headers: this.getHeaders()
       }
     );
   }
@@ -501,6 +503,34 @@ export class InvoiceService {
         responseType: 'blob'
       }
     ).pipe(
+      switchMap((response: any) => {
+        // Verificar si la respuesta es JSON con una URL de redirección
+        if (response instanceof Blob && response.type === 'application/json') {
+          // Convertir blob a texto para verificar si es una redirección
+          return new Observable<Blob>(observer => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const json = JSON.parse(reader.result as string);
+                if (json.redirect && json.url) {
+                  // Abrir la URL en una nueva pestaña
+                  console.log('🔗 Redirigiendo a URL pública:', json.url);
+                  window.open(json.url, '_blank');
+                  observer.error({ message: 'redirect', url: json.url });
+                } else {
+                  observer.next(response);
+                  observer.complete();
+                }
+              } catch {
+                observer.next(response);
+                observer.complete();
+              }
+            };
+            reader.readAsText(response);
+          });
+        }
+        return of(response);
+      }),
       tap(() => {
         console.log('✅ Archivo PDF descargado exitosamente');
       }),

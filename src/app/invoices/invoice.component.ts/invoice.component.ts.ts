@@ -44,8 +44,10 @@ export class CreateInvoiceComponent implements OnInit {
   clients: Client[] = [];
   products: Product[] = [];
   selectedClient: Client | null = null;
-  emittedInvoiceId: number | null = null;
-  emittedDocumentId: string | null = null;
+  
+  // ✅ IMPORTANTE: Guardar ambos IDs
+  emittedInvoiceId: number | null = null;        // ID de Strapi (105)
+  emittedDocumentId: string | null = null;      // ID de Factus (SETP990000049)
   
   // Búsqueda
   searchingClients = false;
@@ -56,6 +58,7 @@ export class CreateInvoiceComponent implements OnInit {
   // Modales
   showClientModal = false;
   showProductModal = false;
+  showPdfModal = false;  // ✅ Modal de descarga de PDF
   currentItemIndex: number | null = null;
   
   // Errores
@@ -372,7 +375,7 @@ export class CreateInvoiceComponent implements OnInit {
   // 🆕 GUARDAR Y EMITIR - MÉTODO CORREGIDO
   // ============================================
 
-  saveAndEmit(): void {
+ saveAndEmit(): void {
     console.log('🚀 Iniciando guardado y emisión...');
     
     if (!this.validateForm()) {
@@ -380,7 +383,6 @@ export class CreateInvoiceComponent implements OnInit {
       return;
     }
 
-    // Validación adicional antes de emitir
     const preValidation = this.validateBeforeEmission();
     if (!preValidation.valid) {
       this.showError(preValidation.message);
@@ -404,22 +406,43 @@ export class CreateInvoiceComponent implements OnInit {
         this.invoiceService.emitInvoice(invoiceId).subscribe({
           next: (emissionResponse) => {
             this.emitting = false;
+            
+            console.log('📋 Respuesta completa de emisión:', emissionResponse);
+            
             if (emissionResponse.success) {
               console.log('✅ Factura emitida exitosamente');
-              // Guardar el ID de la factura y documento para descarga de PDF
-              this.emittedInvoiceId = invoiceId;
-              if (emissionResponse.data?.documentId) {
-                this.emittedDocumentId = emissionResponse.data.documentId;
+              
+              // ✅ CRÍTICO: Guardar AMBOS IDs correctamente
+              this.emittedInvoiceId = invoiceId; // Para navegar (105)
+              
+              // ✅ IMPORTANTE: El campo "number" es el que se usa para descargar el PDF
+              // La API de Factus usa: GET /v1/bills/download-pdf/:number
+              // El "number" tiene formato como: SETP990000493
+              const factusNumber = 
+                emissionResponse.data?.number ||                    // Primera prioridad (añadido en el backend)
+                emissionResponse.data?.data?.bill?.number ||       // Segunda prioridad (respuesta anidada)
+                emissionResponse.data?.documentId ||               // Tercera prioridad (legacy)
+                emissionResponse.data?.data?.bill?.id ||           // Cuarta prioridad
+                emissionResponse.data?.id;                         // Última prioridad
+              
+              if (factusNumber) {
+                this.emittedDocumentId = String(factusNumber);
+                console.log('✅ factus number (para PDF) capturado correctamente:', this.emittedDocumentId);
+                
+                // ✅ MOSTRAR MODAL DE DESCARGA DE PDF
+                this.showPdfModal = true;
+              } else {
+                console.error('❌ No se encontró el número de factura (number) en la respuesta');
+                console.error('Estructura de respuesta:', JSON.stringify(emissionResponse, null, 2));
+                this.showError('Factura emitida pero no se pudo obtener el número de Factus para descargar el PDF');
               }
-              this.showSuccess('¡Factura emitida exitosamente a la DIAN! ✅ Puedes descargar el PDF');
-              // No navegar inmediatamente, permite al usuario descargar el PDF primero
-              setTimeout(() => {
-                this.router.navigate(['/invoices', invoiceId]);
-              }, 5000);
+              
+              this.showSuccess('¡Factura emitida exitosamente a la DIAN! ✅');
+              
+              // No navegar automáticamente, el usuario puede descargar PDF o cerrar el modal
             } else {
               console.error('❌ Error en emisión:', emissionResponse.error);
               this.showError('Factura guardada pero error en emisión: ' + emissionResponse.error);
-              // Aún así navegar a la factura
               setTimeout(() => {
                 this.router.navigate(['/invoices', invoiceId]);
               }, 3000);
@@ -430,7 +453,6 @@ export class CreateInvoiceComponent implements OnInit {
             console.error('❌ Error emitiendo:', error);
             const errorMessage = this.extractDetailedError(error);
             this.showError('Factura guardada pero error en emisión: ' + errorMessage);
-            // Navegar a la factura de todas formas
             setTimeout(() => {
               this.router.navigate(['/invoices', invoiceId]);
             }, 3000);
@@ -694,42 +716,88 @@ export class CreateInvoiceComponent implements OnInit {
   /**
    * Descargar el PDF de la factura emitida
    */
-  downloadInvoicePDF(): void {
-    if (!this.emittedDocumentId && !this.emittedInvoiceId) {
+   downloadInvoicePDF(): void {
+    console.log('📥 [DEBUG] Iniciando descarga de PDF...');
+    console.log('  - emittedInvoiceId (Strapi):', this.emittedInvoiceId);
+    console.log('  - emittedDocumentId (Factus number):', this.emittedDocumentId);
+    
+    // ✅ PRIORIDAD: Usar emittedDocumentId (SETP990000049) primero
+    const documentId = this.emittedDocumentId || this.emittedInvoiceId;
+    
+    if (!documentId) {
       this.showError('No hay factura emitida para descargar. Por favor emite la factura primero.');
       return;
     }
 
-    const documentId = this.emittedDocumentId || this.emittedInvoiceId;
-    console.log(`📥 Descargando PDF del documento ${documentId}...`);
+    console.log(`📥 Usando número de factura para descarga: ${documentId}`);
+    console.log(`  - Tipo: ${this.emittedDocumentId ? 'factus number (correcto para API Factus)' : 'Strapi ID (fallback)'}`);
 
+    // ✅ IMPORTANTE: Esperar 2 segundos antes de descargar para asegurar
+    // que la factura esté completamente procesada en Factus
     this.downloading = true;
 
-    this.invoiceService.downloadPDFAsBlob(documentId!).subscribe({
-      next: (blob: Blob) => {
-        this.downloading = false;
-        
-        // Crear URL y descargar el archivo
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `factura-${this.emittedInvoiceId || documentId}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Limpiar recursos
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        console.log('✅ PDF descargado exitosamente');
-        this.showSuccess('PDF descargado exitosamente');
-      },
-      error: (error) => {
-        this.downloading = false;
-        console.error('❌ Error descargando PDF:', error);
-        const errorMessage = this.extractDetailedError(error);
-        this.showError('Error descargando PDF: ' + errorMessage);
-      }
-    });
+    // Pequeño delay para asegurar que Factus haya procesado completamente la factura
+    setTimeout(() => {
+      this.invoiceService.downloadPDFAsBlob(documentId).subscribe({
+        next: (blob: Blob) => {
+          this.downloading = false;
+          
+          // Crear URL y descargar el archivo
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `factura-${documentId}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          
+          // Limpiar recursos
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+          
+          console.log('✅ PDF descargado exitosamente');
+          this.showSuccess('PDF descargado exitosamente');
+          
+          // Cerrar modal y navegar después de descargar
+          this.closePdfModal();
+        },
+        error: (error) => {
+          this.downloading = false;
+          console.error('❌ Error descargando PDF:', error);
+          
+          // Intentar extraer mensaje de error más específico
+          let errorMessage = 'Error desconocido';
+          if (error.error?.error) {
+            errorMessage = error.error.error;
+          } else if (error.error?.message) {
+            errorMessage = error.error.message;
+          } else if (error.message) {
+            errorMessage = error.message;
+          } else {
+            errorMessage = this.extractDetailedError(error);
+          }
+          
+          console.error('  - Detalles del error:', errorMessage);
+          this.showError('Error descargando PDF: ' + errorMessage + '. Intenta nuevamente en unos segundos.');
+        }
+      });
+    }, 2000); // Esperar 2 segundos
+  }
+
+  // ============================================
+  // MODAL DE DESCARGA DE PDF
+  // ============================================
+
+  /**
+   * Cerrar el modal de PDF y navegar a la lista de facturas
+   */
+  closePdfModal(): void {
+    this.showPdfModal = false;
+    
+    // Navegar a la factura después de cerrar el modal
+    if (this.emittedInvoiceId) {
+      this.router.navigate(['/invoices', this.emittedInvoiceId]);
+    } else {
+      this.router.navigate(['/invoices']);
+    }
   }
 }
