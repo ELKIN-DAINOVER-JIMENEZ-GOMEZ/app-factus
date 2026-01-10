@@ -2,7 +2,7 @@
 
 export const environment = {
   production: true,
-  apiUrl: 'https://tu-api-produccion.com',
+  apiUrl: 'https://reto-factus.web.app',
   appName: 'FactusCMS',
   version: '1.0.0'
 };
