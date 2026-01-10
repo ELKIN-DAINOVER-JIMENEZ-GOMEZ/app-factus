@@ -1,13 +1,10 @@
-/**
- * Componente de Lista de Productos
- * Ubicación: src/app/components/products/product-list/product-list.component.ts
- */
-
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ProductService, Product } from '../../services/products.services';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-product-list',
@@ -16,26 +13,22 @@ import { ProductService, Product } from '../../services/products.services';
   templateUrl: './product-list.html',
   styleUrl: './product-list.css'
 })
-export class ProductListComponent implements OnInit {
-  // Datos
+export class ProductListComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+
   products: Product[] = [];
   stats: any = null;
-  
-  // Paginación
+
   currentPage = 1;
   pageSize = 20;
   totalProducts = 0;
   totalPages = 0;
-  
-  // Filtros
+
   searchTerm = '';
   filterType = '';
   filterStatus = '';
-  
-  // Estados
-  loading = false;
 
-  // Math para template
+  loading = false;
   Math = Math;
 
   constructor(
@@ -46,40 +39,31 @@ export class ProductListComponent implements OnInit {
   ngOnInit(): void {
     this.loadProducts();
     this.loadStats();
-    
-    // Escuchar actualizaciones
-    this.productService.productsUpdated$.subscribe(updated => {
-      if (updated) {
-        this.loadProducts();
-        this.loadStats();
-      }
-    });
+    this.productService.productsUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(updated => {
+        if (updated) {
+          this.loadProducts();
+          this.loadStats();
+        }
+      });
   }
 
-  // ============================================
-  // CARGA DE DATOS
-  // ============================================
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
   loadProducts(): void {
     this.loading = true;
-    
-    const params: any = {
-      page: this.currentPage,
-      pageSize: this.pageSize,
-      sort: 'nombre:asc'
-    };
+    const params: any = { page: this.currentPage, pageSize: this.pageSize, sort: 'nombre:asc' };
 
-    if (this.searchTerm) {
-      params.search = this.searchTerm;
-    }
+    if (this.searchTerm) params.search = this.searchTerm;
 
     const filters: any = {};
     if (this.filterType) filters.tipo = this.filterType;
     if (this.filterStatus) filters.activo = this.filterStatus === 'true';
-    
-    if (Object.keys(filters).length > 0) {
-      params.filters = filters;
-    }
+    if (Object.keys(filters).length > 0) params.filters = filters;
 
     this.productService.getProducts(params).subscribe({
       next: (response) => {
@@ -88,27 +72,16 @@ export class ProductListComponent implements OnInit {
         this.totalPages = response.meta.pagination.pageCount;
         this.loading = false;
       },
-      error: (error) => {
-        console.error('❌ Error cargando productos:', error);
-        this.loading = false;
-      }
+      error: () => this.loading = false
     });
   }
 
-  loadStats(): void {
+  private loadStats(): void {
     this.productService.getProductStats().subscribe({
-      next: (stats) => {
-        this.stats = stats;
-      },
-      error: (error) => {
-        console.error('❌ Error cargando estadísticas:', error);
-      }
+      next: (stats) => this.stats = stats,
+      error: () => {}
     });
   }
-
-  // ============================================
-  // BÚSQUEDA Y FILTROS
-  // ============================================
 
   search(): void {
     this.currentPage = 1;
@@ -127,10 +100,6 @@ export class ProductListComponent implements OnInit {
     this.currentPage = 1;
     this.loadProducts();
   }
-
-  // ============================================
-  // PAGINACIÓN
-  // ============================================
 
   previousPage(): void {
     if (this.currentPage > 1) {
@@ -156,100 +125,75 @@ export class ProductListComponent implements OnInit {
     }
   }
 
-  // ============================================
-  // NAVEGACIÓN
-  // ============================================
-
   createProduct(): void {
     this.router.navigate(['/products/create']);
   }
 
-  editProduct(id: string): void {
-    this.router.navigate(['/products/edit', id]);
+  editProduct(product: Product): void {
+    const productId = (product as any).documentId || product.id;
+    this.router.navigate(['/products/edit', productId]);
   }
 
-  viewProduct(id: string): void {
-    // Si tienes una vista de detalle, navega aquí
-    this.router.navigate(['/products', id]);
+  viewProduct(product: Product): void {
+    const productId = (product as any).documentId || product.id;
+    this.router.navigate(['/products', productId]);
   }
-
-  // ============================================
-  // ACCIONES
-  // ============================================
 
   deleteProduct(product: Product): void {
-    const confirmMessage = `¿Estás seguro de eliminar "${product.nombre}"?\n\n` +
-      `Esta acción desactivará el producto.`;
-    
-    if (confirm(confirmMessage)) {
-      this.productService.deleteProduct(product.id!).subscribe({
-        next: () => {
-          console.log('✅ Producto eliminado');
-          this.loadProducts();
-          this.loadStats();
-        },
-        error: (error) => {
-          console.error('❌ Error eliminando producto:', error);
-          alert('Error eliminando producto: ' + error.message);
-        }
-      });
-    }
+    if (!confirm(`¿Estás seguro de eliminar "${product.nombre}"?\n\nEsta acción eliminará el producto permanentemente.`)) return;
+
+    const productId = (product as any).documentId || product.id;
+    this.productService.deleteProduct(productId!).subscribe({
+      next: () => {
+        alert('Producto eliminado exitosamente');
+        this.loadProducts();
+        this.loadStats();
+      },
+      error: (error) => alert('Error eliminando producto: ' + (error.message || 'Intenta de nuevo'))
+    });
   }
 
   toggleProductStatus(product: Product): void {
     const newStatus = !product.activo;
     const action = newStatus ? 'activar' : 'desactivar';
     
-    if (confirm(`¿Estás seguro de ${action} "${product.nombre}"?`)) {
-      this.productService.updateProduct(product.id!, { activo: newStatus }).subscribe({
-        next: () => {
-          console.log(`✅ Producto ${action}do`);
-          this.loadProducts();
-          this.loadStats();
-        },
-        error: (error) => {
-          console.error(`❌ Error ${action}ndo producto:`, error);
-          alert(`Error ${action}ndo producto: ` + error.message);
-        }
-      });
-    }
+    if (!confirm(`¿Estás seguro de ${action} "${product.nombre}"?`)) return;
+
+    this.productService.updateProduct(product.id!, { activo: newStatus }).subscribe({
+      next: () => {
+        this.loadProducts();
+        this.loadStats();
+      },
+      error: (error) => alert(`Error ${action}ndo producto: ` + error.message)
+    });
   }
 
   duplicateProduct(product: Product): void {
-    if (confirm(`¿Deseas crear una copia de "${product.nombre}"?`)) {
-      const newProduct: Product = {
-        ...product,
-        id: undefined,
-        codigo: product.codigo + '-COPY',
-        nombre: product.nombre + ' (Copia)',
-        activo: false
-      };
+    if (!confirm(`¿Deseas crear una copia de "${product.nombre}"?`)) return;
 
-      this.productService.createProduct(newProduct).subscribe({
-        next: (response) => {
-          console.log('✅ Producto duplicado');
-          this.loadProducts();
-          this.loadStats();
-          // Opcionalmente redirigir al producto duplicado para editar
-          this.editProduct(response.data.id!);
-        },
-        error: (error) => {
-          console.error('❌ Error duplicando producto:', error);
-          alert('Error duplicando producto: ' + error.message);
-        }
-      });
-    }
+    const newProduct: Product = {
+      ...product,
+      id: undefined,
+      codigo: product.codigo + '-COPY',
+      nombre: product.nombre + ' (Copia)',
+      activo: false
+    };
+
+    this.productService.createProduct(newProduct).subscribe({
+      next: (response) => {
+        this.loadProducts();
+        this.loadStats();
+        this.editProduct(response.data);
+      },
+      error: (error) => alert('Error duplicando producto: ' + error.message)
+    });
   }
 
-  // ============================================
-  // UTILIDADES
-  // ============================================
-
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0
+    // Formatear con separador de miles (punto) para Colombia
+    return '$ ' + new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   }
 
@@ -281,7 +225,7 @@ export class ProductListComponent implements OnInit {
     return tipo === 'producto' ? 'Producto' : 'Servicio';
   }
 
-  getTipoClass(tipo: string): { [key: string]: boolean } {
+  getTipoClass(tipo: string): Record<string, boolean> {
     return {
       'bg-green-100 text-green-800': tipo === 'producto',
       'bg-blue-100 text-blue-800': tipo === 'servicio'
@@ -292,16 +236,12 @@ export class ProductListComponent implements OnInit {
     return activo ? 'Activo' : 'Inactivo';
   }
 
-  getStatusClass(activo: boolean): { [key: string]: boolean } {
+  getStatusClass(activo: boolean): Record<string, boolean> {
     return {
       'bg-green-100 text-green-800': activo,
       'bg-gray-100 text-gray-800': !activo
     };
   }
-
-  // ============================================
-  // EXPORTAR DATOS
-  // ============================================
 
   exportToCSV(): void {
     // Generar CSV con todos los productos

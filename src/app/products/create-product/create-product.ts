@@ -1,13 +1,10 @@
-/**
- * Componente de Crear/Editar Producto
- * Ubicación: src/app/components/products/create-product/create-product.component.ts
- */
-
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute, RouterModule } from '@angular/router';
 import { ProductService, Product } from '../../services/products.services';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-create-product',
@@ -16,34 +13,26 @@ import { ProductService, Product } from '../../services/products.services';
   templateUrl: './create-product.html',
   styleUrl: './create-product.css'
 })
-export class CreateProductComponent implements OnInit {
+export class CreateProductComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+
   productForm!: FormGroup;
-  
-  // Estados
+
   loading = false;
   saving = false;
   isEditMode = false;
   productId: string | null = null;
-  
-  // Datos
+
   product: Product | null = null;
-  
-  // Opciones
+
   tiposProducto: any[] = [];
   unidadesMedida: any[] = [];
   porcentajesIVA: any[] = [];
-  
-  // Mensajes
+
   errors: string[] = [];
   successMessage = '';
 
-  // Precio calculado con impuestos
-  calculatedPrice = {
-    base: 0,
-    iva: 0,
-    ico: 0,
-    total: 0
-  };
+  calculatedPrice = { base: 0, iva: 0, ico: 0, total: 0 };
 
   constructor(
     private fb: FormBuilder,
@@ -53,12 +42,10 @@ export class CreateProductComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Inicializar opciones desde el servicio
     this.tiposProducto = this.productService.TIPOS_PRODUCTO;
     this.unidadesMedida = this.productService.UNIDADES_MEDIDA;
     this.porcentajesIVA = this.productService.PORCENTAJES_IVA;
 
-    // Verificar si es modo edición
     this.productId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.productId;
 
@@ -68,17 +55,17 @@ export class CreateProductComponent implements OnInit {
       this.loadProduct(this.productId);
     }
 
-    // Calcular precio con impuestos en tiempo real
-    this.productForm.valueChanges.subscribe(() => {
-      this.calculatePrice();
-    });
+    this.productForm.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.calculatePrice());
   }
 
-  // ============================================
-  // INICIALIZACIÓN DEL FORMULARIO
-  // ============================================
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
-  initForm(): void {
+  private initForm(): void {
     this.productForm = this.fb.group({
       // Información básica
       codigo: ['', [Validators.required, Validators.maxLength(50)]],
@@ -117,37 +104,30 @@ export class CreateProductComponent implements OnInit {
     });
 
     // Actualizar unidad_medida_id cuando cambie unidad_medida
-    this.productForm.get('unidad_medida')?.valueChanges.subscribe(value => {
-      const unidad = this.unidadesMedida.find(u => u.value === value);
-      if (unidad) {
-        this.productForm.patchValue({ unidad_medida_id: unidad.id }, { emitEvent: false });
-      }
-    });
+    this.productForm.get('unidad_medida')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(value => {
+        const unidad = this.unidadesMedida.find(u => u.value === value);
+        if (unidad) {
+          this.productForm.patchValue({ unidad_medida_id: unidad.id }, { emitEvent: false });
+        }
+      });
 
-    // Deshabilitar porcentaje de IVA si no aplica
-    this.productForm.get('aplica_iva')?.valueChanges.subscribe(aplica => {
-      if (!aplica) {
-        this.productForm.patchValue({ iva_porcentaje: 0 }, { emitEvent: false });
-      } else {
-        this.productForm.patchValue({ iva_porcentaje: 19 }, { emitEvent: false });
-      }
-    });
+    this.productForm.get('aplica_iva')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(aplica => {
+        this.productForm.patchValue({ iva_porcentaje: aplica ? 19 : 0 }, { emitEvent: false });
+      });
 
-    // Deshabilitar porcentaje de ICO si no aplica
-    this.productForm.get('aplica_ico')?.valueChanges.subscribe(aplica => {
-      if (!aplica) {
-        this.productForm.patchValue({ ico_porcentaje: 0 }, { emitEvent: false });
-      }
-    });
+    this.productForm.get('aplica_ico')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(aplica => {
+        if (!aplica) this.productForm.patchValue({ ico_porcentaje: 0 }, { emitEvent: false });
+      });
   }
 
-  // ============================================
-  // CARGA DE DATOS
-  // ============================================
-
-  loadProduct(id: string): void {
+  private loadProduct(id: string): void {
     this.loading = true;
-    
     this.productService.getProduct(id).subscribe({
       next: (response) => {
         this.product = response.data;
@@ -155,14 +135,13 @@ export class CreateProductComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        console.error('❌ Error cargando producto:', error);
         this.showError('Error cargando producto: ' + error.message);
         this.loading = false;
       }
     });
   }
 
-  populateForm(product: Product): void {
+  private populateForm(product: Product): void {
     this.productForm.patchValue({
       codigo: product.codigo,
       nombre: product.nombre,
@@ -188,54 +167,31 @@ export class CreateProductComponent implements OnInit {
     });
   }
 
-  // ============================================
-  // GUARDAR
-  // ============================================
-
   async save(): Promise<void> {
-    if (!await this.validateForm()) {
-      return;
-    }
+    if (!await this.validateForm()) return;
 
     this.saving = true;
     this.clearMessages();
-
     const productData = this.prepareProductData();
 
-    if (this.isEditMode && this.productId) {
-      // Actualizar
-      this.productService.updateProduct(this.productId, productData).subscribe({
-        next: () => {
-          this.saving = false;
-          this.showSuccess('Producto actualizado exitosamente');
-          setTimeout(() => {
-            this.router.navigate(['/products']);
-          }, 1500);
-        },
-        error: (error) => {
-          this.saving = false;
-          this.showError('Error actualizando producto: ' + error.message);
-        }
-      });
-    } else {
-      // Crear
-      this.productService.createProduct(productData).subscribe({
-        next: () => {
-          this.saving = false;
-          this.showSuccess('Producto creado exitosamente');
-          setTimeout(() => {
-            this.router.navigate(['/products']);
-          }, 1500);
-        },
-        error: (error) => {
-          this.saving = false;
-          this.showError('Error creando producto: ' + error.message);
-        }
-      });
-    }
+    const request$ = this.isEditMode && this.productId
+      ? this.productService.updateProduct(this.productId, productData)
+      : this.productService.createProduct(productData);
+
+    request$.subscribe({
+      next: () => {
+        this.saving = false;
+        this.showSuccess(this.isEditMode ? 'Producto actualizado exitosamente' : 'Producto creado exitosamente');
+        setTimeout(() => this.router.navigate(['/products']), 1500);
+      },
+      error: (error) => {
+        this.saving = false;
+        this.showError(`Error ${this.isEditMode ? 'actualizando' : 'creando'} producto: ` + error.message);
+      }
+    });
   }
 
-  prepareProductData(): Product {
+  private prepareProductData(): Product {
     const formValue = this.productForm.value;
 
     return {
@@ -263,11 +219,7 @@ export class CreateProductComponent implements OnInit {
     } as Product;
   }
 
-  // ============================================
-  // VALIDACIÓN
-  // ============================================
-
-  async validateForm(): Promise<boolean> {
+  private async validateForm(): Promise<boolean> {
     this.clearMessages();
 
     if (this.productForm.invalid) {
@@ -276,47 +228,28 @@ export class CreateProductComponent implements OnInit {
       return false;
     }
 
-    // Validar código único
     const codigo = this.productForm.value.codigo.trim();
     try {
-      const exists = await this.productService.checkCodeExists(
-        codigo,
-        this.productId || undefined
-      ).toPromise();
-      
+      const exists = await this.productService.checkCodeExists(codigo, this.productId || undefined).toPromise();
       if (exists) {
         this.showError(`El código "${codigo}" ya está en uso`);
         return false;
       }
-    } catch (error) {
-      console.error('Error verificando código:', error);
-    }
+    } catch {}
 
     return true;
   }
 
-  markFormGroupTouched(formGroup: FormGroup): void {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-    });
+  private markFormGroupTouched(formGroup: FormGroup): void {
+    Object.keys(formGroup.controls).forEach(key => formGroup.get(key)?.markAsTouched());
   }
 
-  // ============================================
-  // CÁLCULOS
-  // ============================================
-
-  calculatePrice(): void {
+   private calculatePrice(): void {
     const precio = parseFloat(this.productForm.value.precio_unitario) || 0;
     const iva = parseFloat(this.productForm.value.iva_porcentaje) || 0;
     const ico = parseFloat(this.productForm.value.ico_porcentaje) || 0;
-
     this.calculatedPrice = this.productService.calculatePriceWithTax(precio, iva, ico);
   }
-
-  // ============================================
-  // UTILIDADES
-  // ============================================
 
   formatCurrency(value: number): string {
     return new Intl.NumberFormat('es-CO', {
@@ -326,34 +259,25 @@ export class CreateProductComponent implements OnInit {
     }).format(value);
   }
 
-  clearMessages(): void {
+  private clearMessages(): void {
     this.errors = [];
     this.successMessage = '';
   }
 
-  showError(message: string): void {
+  private showError(message: string): void {
     this.errors = [message];
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  showSuccess(message: string): void {
+  private showSuccess(message: string): void {
     this.successMessage = message;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   cancel(): void {
-    if (this.productForm.dirty) {
-      if (confirm('¿Estás seguro de cancelar? Se perderán los cambios no guardados.')) {
-        this.router.navigate(['/products']);
-      }
-    } else {
-      this.router.navigate(['/products']);
-    }
+    if (this.productForm.dirty && !confirm('¿Estás seguro de cancelar? Se perderán los cambios no guardados.')) return;
+    this.router.navigate(['/products']);
   }
-
-  // ============================================
-  // HELPERS PARA EL TEMPLATE
-  // ============================================
 
   isFieldInvalid(fieldName: string): boolean {
     const field = this.productForm.get(fieldName);

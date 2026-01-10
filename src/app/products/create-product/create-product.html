@@ -139,6 +139,9 @@
                      [class.border-red-500]="isFieldInvalid('precio_unitario')"
                      class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
             </div>
+            <p class="mt-1 text-xs text-gray-500">
+              No uses puntos ni comas. Ej: 45000
+            </p>
             <p *ngIf="isFieldInvalid('precio_unitario')" class="mt-1 text-sm text-red-600">
               {{ getFieldError('precio_unitario') }}
             </p>

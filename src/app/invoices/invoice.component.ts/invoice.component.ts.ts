@@ -1,14 +1,3 @@
-/**
- * Componente de Crear Factura - VERSIÓN FINAL CORREGIDA
- * Ubicación: src/app/components/invoices/create-invoice.component.ts
- * 
- * CAMBIOS PRINCIPALES:
- * ✅ Usa el nuevo método createInvoiceComplete()
- * ✅ Mejor manejo de errores con detalles
- * ✅ Validación mejorada
- * ✅ Logging detallado para debugging
- */
-
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormArray, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
@@ -33,39 +22,32 @@ interface FormInvoiceItem extends InvoiceItem {
 })
 export class CreateInvoiceComponent implements OnInit {
   invoiceForm!: FormGroup;
-  
-  // Estados
+
   loading = false;
   saving = false;
   emitting = false;
   downloading = false;
-  
-  // Datos
+
   clients: Client[] = [];
   products: Product[] = [];
   selectedClient: Client | null = null;
-  
-  // ✅ IMPORTANTE: Guardar ambos IDs
-  emittedInvoiceId: number | null = null;        // ID de Strapi (105)
-  emittedDocumentId: string | null = null;      // ID de Factus (SETP990000049)
-  
-  // Búsqueda
+
+  emittedInvoiceId: number | null = null;
+  emittedDocumentId: string | null = null;
+
   searchingClients = false;
   searchingProducts = false;
   clientSearch = '';
   productSearch = '';
-  
-  // Modales
+
   showClientModal = false;
   showProductModal = false;
-  showPdfModal = false;  // ✅ Modal de descarga de PDF
+  showPdfModal = false;
   currentItemIndex: number | null = null;
-  
-  // Errores
+
   errors: string[] = [];
   successMessage = '';
 
-  // Opciones para selects
   tiposOperacion = [
     { value: 'Contado', label: 'Contado' },
     { value: 'Credito', label: 'Crédito' },
@@ -91,19 +73,12 @@ export class CreateInvoiceComponent implements OnInit {
     this.initForm();
     this.loadClients();
     this.loadProducts();
-    
     this.invoiceService.clientsUpdated$.subscribe(updated => {
-      if (updated) {
-        this.loadClients();
-      }
+      if (updated) this.loadClients();
     });
   }
 
-  // ============================================
-  // INICIALIZACIÓN DEL FORMULARIO
-  // ============================================
-
-  initForm(): void {
+  private initForm(): void {
     this.invoiceForm = this.fb.group({
       client: [null, Validators.required],
       fecha_emision: [new Date().toISOString().split('T')[0], Validators.required],
@@ -123,10 +98,6 @@ export class CreateInvoiceComponent implements OnInit {
     this.addItem();
   }
 
-  // ============================================
-  // GETTERS
-  // ============================================
-
   get items(): FormArray {
     return this.invoiceForm.get('invoice_items') as FormArray;
   }
@@ -135,24 +106,14 @@ export class CreateInvoiceComponent implements OnInit {
     return this.items.controls;
   }
 
-  // ============================================
-  // CARGA DE DATOS
-  // ============================================
-
   loadClients(search?: string): void {
     this.searchingClients = true;
-    
-    this.invoiceService.getClients({ 
-      search: search || '', 
-      pageSize: 50 
-    }).subscribe({
+    this.invoiceService.getClients({ search: search || '', pageSize: 50 }).subscribe({
       next: (response) => {
         this.clients = response.data;
         this.searchingClients = false;
-        console.log('✅ Clientes cargados:', this.clients.length);
       },
       error: (error) => {
-        console.error('❌ Error cargando clientes:', error);
         this.searchingClients = false;
         this.showError('Error cargando clientes: ' + error.message);
       }
@@ -161,32 +122,21 @@ export class CreateInvoiceComponent implements OnInit {
 
   loadProducts(search?: string): void {
     this.searchingProducts = true;
-    
-    this.invoiceService.getProducts({ 
-      search: search || '', 
-      pageSize: 100 
-    }).subscribe({
+    this.invoiceService.getProducts({ search: search || '', pageSize: 100 }).subscribe({
       next: (response) => {
         this.products = response.data;
         this.searchingProducts = false;
-        console.log('✅ Productos cargados:', this.products.length);
       },
       error: (error) => {
-        console.error('❌ Error cargando productos:', error);
         this.searchingProducts = false;
         this.showError('Error cargando productos: ' + error.message);
       }
     });
   }
 
-  // ============================================
-  // MANEJO DE CLIENTE
-  // ============================================
-
   onClientChange(event: any): void {
     const clientId = parseInt(event.target.value);
     this.selectedClient = this.clients.find(c => c.id === clientId) || null;
-    console.log('Cliente seleccionado:', this.selectedClient);
   }
 
   openClientModal(): void {
@@ -208,11 +158,7 @@ export class CreateInvoiceComponent implements OnInit {
     this.loadClients(this.clientSearch);
   }
 
-  // ============================================
-  // MANEJO DE ITEMS
-  // ============================================
-
-  createItemFormGroup(item?: Partial<FormInvoiceItem>): FormGroup {
+  private createItemFormGroup(item?: Partial<FormInvoiceItem>): FormGroup {
     return this.fb.group({
       _tempId: [item?._tempId || this.generateTempId()],
       product: [item?.product || null, Validators.required],
@@ -259,10 +205,6 @@ export class CreateInvoiceComponent implements OnInit {
     this.items.insert(index + 1, this.createItemFormGroup(newItem));
   }
 
-  // ============================================
-  // SELECCIÓN DE PRODUCTO
-  // ============================================
-
   openProductModal(index: number): void {
     this.currentItemIndex = index;
     this.showProductModal = true;
@@ -300,10 +242,6 @@ export class CreateInvoiceComponent implements OnInit {
     this.loadProducts(this.productSearch);
   }
 
-  // ============================================
-  // CÁLCULOS
-  // ============================================
-
   calculateItemTotals(index: number): void {
     const itemGroup = this.items.at(index) as FormGroup;
     const itemValue = itemGroup.value;
@@ -334,54 +272,28 @@ export class CreateInvoiceComponent implements OnInit {
     }, { emitEvent: false });
   }
 
-  // ============================================
-  // 🆕 GUARDAR - MÉTODO CORREGIDO
-  // ============================================
-
   saveAsDraft(): void {
-    console.log('💾 Iniciando guardado como borrador...');
-    
-    if (!this.validateForm()) {
-      console.log('❌ Validación fallida');
-      return;
-    }
+    if (!this.validateForm()) return;
 
     this.saving = true;
     this.clearMessages();
-
     const invoiceData = this.prepareInvoiceData();
-    console.log('📦 Datos preparados:', invoiceData);
 
-    // ✅ USAR EL NUEVO MÉTODO
     this.invoiceService.createInvoiceComplete(invoiceData).subscribe({
       next: (response) => {
         this.saving = false;
-        console.log('✅ Factura guardada completa:', response);
         this.showSuccess(`¡Factura guardada! ID: ${response.invoice.id}, Items: ${response.items.length}`);
-        setTimeout(() => {
-          this.router.navigate(['/invoices', response.invoice.id]);
-        }, 1500);
+        setTimeout(() => this.router.navigate(['/invoices', response.invoice.id]), 1500);
       },
       error: (error) => {
         this.saving = false;
-        console.error('❌ Error guardando factura:', error);
-        const errorMessage = this.extractDetailedError(error);
-        this.showError('Error guardando factura: ' + errorMessage);
+        this.showError('Error guardando factura: ' + this.extractDetailedError(error));
       }
     });
   }
 
-  // ============================================
-  // 🆕 GUARDAR Y EMITIR - MÉTODO CORREGIDO
-  // ============================================
-
- saveAndEmit(): void {
-    console.log('🚀 Iniciando guardado y emisión...');
-    
-    if (!this.validateForm()) {
-      console.log('❌ Validación fallida');
-      return;
-    }
+  saveAndEmit(): void {
+    if (!this.validateForm()) return;
 
     const preValidation = this.validateBeforeEmission();
     if (!preValidation.valid) {
@@ -391,93 +303,53 @@ export class CreateInvoiceComponent implements OnInit {
 
     this.emitting = true;
     this.clearMessages();
-
     const invoiceData = this.prepareInvoiceData();
-    console.log('📦 Datos a guardar y emitir:', invoiceData);
 
-    // PASO 1: Crear factura completa con items
     this.invoiceService.createInvoiceComplete(invoiceData).subscribe({
       next: (response) => {
         const invoiceId = response.invoice.id!;
-        console.log(`✅ [1/2] Factura ${invoiceId} creada con ${response.items.length} items`);
-        console.log('📤 [2/2] Emitiendo a DIAN...');
-
-        // PASO 2: Emitir a Factus
         this.invoiceService.emitInvoice(invoiceId).subscribe({
           next: (emissionResponse) => {
             this.emitting = false;
-            
-            console.log('📋 Respuesta completa de emisión:', emissionResponse);
-            
             if (emissionResponse.success) {
-              console.log('✅ Factura emitida exitosamente');
-              
-              // ✅ CRÍTICO: Guardar AMBOS IDs correctamente
-              this.emittedInvoiceId = invoiceId; // Para navegar (105)
-              
-              // ✅ IMPORTANTE: El campo "number" es el que se usa para descargar el PDF
-              // La API de Factus usa: GET /v1/bills/download-pdf/:number
-              // El "number" tiene formato como: SETP990000493
+              this.emittedInvoiceId = invoiceId;
               const factusNumber = 
-                emissionResponse.data?.number ||                    // Primera prioridad (añadido en el backend)
-                emissionResponse.data?.data?.bill?.number ||       // Segunda prioridad (respuesta anidada)
-                emissionResponse.data?.documentId ||               // Tercera prioridad (legacy)
-                emissionResponse.data?.data?.bill?.id ||           // Cuarta prioridad
-                emissionResponse.data?.id;                         // Última prioridad
+                emissionResponse.data?.number ||
+                emissionResponse.data?.data?.bill?.number ||
+                emissionResponse.data?.documentId ||
+                emissionResponse.data?.data?.bill?.id ||
+                emissionResponse.data?.id;
               
               if (factusNumber) {
                 this.emittedDocumentId = String(factusNumber);
-                console.log('✅ factus number (para PDF) capturado correctamente:', this.emittedDocumentId);
-                
-                // ✅ MOSTRAR MODAL DE DESCARGA DE PDF
                 this.showPdfModal = true;
               } else {
-                console.error('❌ No se encontró el número de factura (number) en la respuesta');
-                console.error('Estructura de respuesta:', JSON.stringify(emissionResponse, null, 2));
                 this.showError('Factura emitida pero no se pudo obtener el número de Factus para descargar el PDF');
               }
-              
-              this.showSuccess('¡Factura emitida exitosamente a la DIAN! ✅');
-              
-              // No navegar automáticamente, el usuario puede descargar PDF o cerrar el modal
+              this.showSuccess('¡Factura emitida exitosamente a la DIAN!');
             } else {
-              console.error('❌ Error en emisión:', emissionResponse.error);
               this.showError('Factura guardada pero error en emisión: ' + emissionResponse.error);
-              setTimeout(() => {
-                this.router.navigate(['/invoices', invoiceId]);
-              }, 3000);
+              setTimeout(() => this.router.navigate(['/invoices', invoiceId]), 3000);
             }
           },
           error: (error) => {
             this.emitting = false;
-            console.error('❌ Error emitiendo:', error);
-            const errorMessage = this.extractDetailedError(error);
-            this.showError('Factura guardada pero error en emisión: ' + errorMessage);
-            setTimeout(() => {
-              this.router.navigate(['/invoices', invoiceId]);
-            }, 3000);
+            this.showError('Factura guardada pero error en emisión: ' + this.extractDetailedError(error));
+            setTimeout(() => this.router.navigate(['/invoices', invoiceId]), 3000);
           }
         });
       },
       error: (error) => {
         this.emitting = false;
-        console.error('❌ Error creando factura:', error);
-        const errorMessage = this.extractDetailedError(error);
-        this.showError('Error creando factura: ' + errorMessage);
+        this.showError('Error creando factura: ' + this.extractDetailedError(error));
       }
     });
   }
 
-  // ============================================
-  // VALIDACIÓN
-  // ============================================
-
-  validateForm(): boolean {
+  private validateForm(): boolean {
     this.clearMessages();
 
     if (this.invoiceForm.invalid) {
-      console.log('❌ Formulario inválido');
-      console.log('Errores:', this.getFormValidationErrors());
       this.showError('Por favor completa todos los campos requeridos');
       this.markFormGroupTouched(this.invoiceForm);
       return false;
@@ -554,43 +426,24 @@ export class CreateInvoiceComponent implements OnInit {
       }
 
       if (!item.codigo_producto || !item.nombre_producto) {
-        return {
-          valid: false,
-          message: `❌ Item ${i + 1} está incompleto`
-        };
+        return { valid: false, message: `Item ${i + 1} está incompleto` };
       }
     }
 
     return { valid: true, message: '' };
   }
 
-  markFormGroupTouched(formGroup: FormGroup): void {
+  private markFormGroupTouched(formGroup: FormGroup): void {
     Object.keys(formGroup.controls).forEach(key => {
       const control = formGroup.get(key);
       control?.markAsTouched();
-
       if (control instanceof FormGroup) {
         this.markFormGroupTouched(control);
       }
     });
   }
 
-  getFormValidationErrors(): any[] {
-    const errors: any[] = [];
-    Object.keys(this.invoiceForm.controls).forEach(key => {
-      const control = this.invoiceForm.get(key);
-      if (control && control.errors) {
-        errors.push({ field: key, errors: control.errors });
-      }
-    });
-    return errors;
-  }
-
-  // ============================================
-  // PREPARACIÓN DE DATOS
-  // ============================================
-
-  prepareInvoiceData(): Invoice {
+  private prepareInvoiceData(): Invoice {
     const formValue = this.invoiceForm.value;
 
     const invoice_items = formValue.invoice_items.map((item: any, index: number) => {
@@ -617,9 +470,21 @@ export class CreateInvoiceComponent implements OnInit {
       };
     });
 
-    const clientId = typeof formValue.client === 'object' 
-      ? formValue.client?.id 
-      : Number(formValue.client);
+    // Manejar correctamente el clientId
+    let clientId: number | undefined;
+    
+    if (typeof formValue.client === 'object' && formValue.client !== null) {
+      clientId = formValue.client.id;
+    } else if (typeof formValue.client === 'number') {
+      clientId = formValue.client;
+    } else if (typeof formValue.client === 'string' && formValue.client.trim() !== '') {
+      const parsed = parseInt(formValue.client, 10);
+      clientId = isNaN(parsed) ? undefined : parsed;
+    }
+    
+    if (!clientId && this.selectedClient?.id) {
+      clientId = this.selectedClient.id;
+    }
 
     const invoice: Invoice = {
       client: clientId,
@@ -673,32 +538,21 @@ export class CreateInvoiceComponent implements OnInit {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  extractDetailedError(error: any): string {
-    console.log('🔍 Extrayendo error detallado:', error);
-
-    // Estructura típica de error de Strapi
-    if (error.error) {
-      if (error.error.error) {
-        if (error.error.error.message) {
-          return error.error.error.message;
-        }
-        if (typeof error.error.error === 'string') {
-          return error.error.error;
-        }
-      }
-      
-      if (error.error.message) {
-        return error.error.message;
-      }
-      
-      if (typeof error.error === 'string') {
-        return error.error;
-      }
+  private extractDetailedError(error: any): string {
+    if (error.status === 409 || error.error?.statusCode === 409) {
+      return 'Existe una factura pendiente por enviar a la DIAN. Ingrese al panel de Factus y envíe o cancele la factura pendiente antes de crear una nueva.';
     }
 
-    if (error.message) {
-      return error.message;
+    const errorText = JSON.stringify(error).toLowerCase();
+    if (errorText.includes('factura pendiente') || errorText.includes('pendiente por enviar')) {
+      return 'Existe una factura pendiente por enviar a la DIAN. Ingrese al panel de Factus y envíe o cancele la factura pendiente antes de crear una nueva.';
     }
+
+    if (error.error?.error?.message) return error.error.error.message;
+    if (typeof error.error?.error === 'string') return error.error.error;
+    if (error.error?.message) return error.error.message;
+    if (typeof error.error === 'string') return error.error;
+    if (error.message) return error.message;
 
     return `Error desconocido (Status: ${error.status || 'N/A'})`;
   }
@@ -709,19 +563,7 @@ export class CreateInvoiceComponent implements OnInit {
     }
   }
 
-  // ============================================
-  // DESCARGAR PDF
-  // ============================================
-
-  /**
-   * Descargar el PDF de la factura emitida
-   */
-   downloadInvoicePDF(): void {
-    console.log('📥 [DEBUG] Iniciando descarga de PDF...');
-    console.log('  - emittedInvoiceId (Strapi):', this.emittedInvoiceId);
-    console.log('  - emittedDocumentId (Factus number):', this.emittedDocumentId);
-    
-    // ✅ PRIORIDAD: Usar emittedDocumentId (SETP990000049) primero
+  downloadInvoicePDF(): void {
     const documentId = this.emittedDocumentId || this.emittedInvoiceId;
     
     if (!documentId) {
@@ -729,71 +571,34 @@ export class CreateInvoiceComponent implements OnInit {
       return;
     }
 
-    console.log(`📥 Usando número de factura para descarga: ${documentId}`);
-    console.log(`  - Tipo: ${this.emittedDocumentId ? 'factus number (correcto para API Factus)' : 'Strapi ID (fallback)'}`);
-
-    // ✅ IMPORTANTE: Esperar 2 segundos antes de descargar para asegurar
-    // que la factura esté completamente procesada en Factus
     this.downloading = true;
 
-    // Pequeño delay para asegurar que Factus haya procesado completamente la factura
     setTimeout(() => {
       this.invoiceService.downloadPDFAsBlob(documentId).subscribe({
         next: (blob: Blob) => {
           this.downloading = false;
-          
-          // Crear URL y descargar el archivo
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = `factura-${documentId}.pdf`;
           document.body.appendChild(link);
           link.click();
-          
-          // Limpiar recursos
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
-          
-          console.log('✅ PDF descargado exitosamente');
           this.showSuccess('PDF descargado exitosamente');
-          
-          // Cerrar modal y navegar después de descargar
           this.closePdfModal();
         },
         error: (error) => {
           this.downloading = false;
-          console.error('❌ Error descargando PDF:', error);
-          
-          // Intentar extraer mensaje de error más específico
-          let errorMessage = 'Error desconocido';
-          if (error.error?.error) {
-            errorMessage = error.error.error;
-          } else if (error.error?.message) {
-            errorMessage = error.error.message;
-          } else if (error.message) {
-            errorMessage = error.message;
-          } else {
-            errorMessage = this.extractDetailedError(error);
-          }
-          
-          console.error('  - Detalles del error:', errorMessage);
+          const errorMessage = error.error?.error || error.error?.message || error.message || this.extractDetailedError(error);
           this.showError('Error descargando PDF: ' + errorMessage + '. Intenta nuevamente en unos segundos.');
         }
       });
-    }, 2000); // Esperar 2 segundos
+    }, 2000);
   }
 
-  // ============================================
-  // MODAL DE DESCARGA DE PDF
-  // ============================================
-
-  /**
-   * Cerrar el modal de PDF y navegar a la lista de facturas
-   */
   closePdfModal(): void {
     this.showPdfModal = false;
-    
-    // Navegar a la factura después de cerrar el modal
     if (this.emittedInvoiceId) {
       this.router.navigate(['/invoices', this.emittedInvoiceId]);
     } else {

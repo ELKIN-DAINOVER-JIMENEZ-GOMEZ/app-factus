@@ -38,6 +38,19 @@ export const routes: Routes = [
         path: 'invoices/:id',
         loadComponent: () => import('./invoices/invoice.component.ts/invoice.component.ts').then(m => m.CreateInvoiceComponent)
       },
+      // Notas Crédito
+      {
+        path: 'credit-notes',
+        loadComponent: () => import('./credit-notes/credit-note-list/credit-note-list.component').then(m => m.CreditNoteListComponent)
+      },
+      {
+        path: 'credit-notes/create',
+        loadComponent: () => import('./credit-notes/credit-note-form/credit-note-form.component').then(m => m.CreditNoteFormComponent)
+      },
+      {
+        path: 'credit-notes/:id',
+        loadComponent: () => import('./credit-notes/credit-note-form/credit-note-form.component').then(m => m.CreditNoteFormComponent)
+      },
       // Clientes
       {
         path: 'clients',

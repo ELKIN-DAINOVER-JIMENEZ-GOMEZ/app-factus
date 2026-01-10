@@ -1,0 +1,237 @@
+<!-- credit-note-form.component.html -->
+<div class="credit-note-form-container">
+  <!-- Header -->
+  <div class="form-header">
+    <button class="btn-back" (click)="goBack()">
+      ← Volver
+    </button>
+    <h1> Nueva Nota Crédito</h1>
+  </div>
+
+  <form [formGroup]="creditNoteForm" (ngSubmit)="onSubmit()">
+    <!-- Selección de factura -->
+    <div class="form-section">
+      <h2>📄 Factura de Referencia</h2>
+      <p class="section-description">Seleccione la factura a la que se aplicará la nota crédito</p>
+      
+      <div class="form-group">
+        <label for="invoiceId">Factura *</label>
+        <select 
+          id="invoiceId" 
+          formControlName="invoiceId"
+          (change)="onInvoiceSelected($event)"
+          class="form-control"
+          [class.error]="creditNoteForm.get('invoiceId')?.touched && creditNoteForm.get('invoiceId')?.invalid">
+          <option value="">-- Seleccione una factura --</option>
+          <option *ngFor="let invoice of invoices" [value]="invoice.id">
+            {{ invoice.factus_id || invoice.numero_factura }} - 
+            {{ getInvoiceClientName(invoice) }} - 
+            {{ formatCurrency(invoice.total) }}
+          </option>
+        </select>
+        <small *ngIf="loadingInvoices" class="loading-text">Cargando facturas...</small>
+        <span class="error-text" *ngIf="creditNoteForm.get('invoiceId')?.touched && creditNoteForm.get('invoiceId')?.invalid">
+          Debe seleccionar una factura
+        </span>
+      </div>
+
+      <!-- Resumen de factura seleccionada -->
+      <div class="invoice-summary" *ngIf="selectedInvoice">
+        <h4> Resumen de Factura</h4>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <span class="label">Número:</span>
+            <span class="value">{{ getInvoiceNumber(selectedInvoice) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Fecha:</span>
+            <span class="value">{{ selectedInvoice.fecha_emision | date:'dd/MM/yyyy' }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Cliente:</span>
+            <span class="value">{{ getInvoiceClientName(selectedInvoice) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Total:</span>
+            <span class="value total">{{ formatCurrency(selectedInvoice.total) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Items en factura:</span>
+            <span class="value">{{ getInvoiceItemCount(selectedInvoice) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Motivo de corrección -->
+    <div class="form-section">
+      <h2>🔧 Motivo de Corrección</h2>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label for="concepto_correccion_id">Concepto de Corrección *</label>
+          <select 
+            id="concepto_correccion_id" 
+            formControlName="concepto_correccion_id"
+            class="form-control">
+            <option *ngFor="let concept of correctionConcepts" [value]="concept.id">
+              {{ concept.name }} - {{ concept.description }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="motivo_correccion">Motivo de Corrección *</label>
+        <textarea 
+          id="motivo_correccion"
+          formControlName="motivo_correccion"
+          class="form-control"
+          rows="3"
+          placeholder="Describa el motivo de la nota crédito (mínimo 10 caracteres)"
+          [class.error]="creditNoteForm.get('motivo_correccion')?.touched && creditNoteForm.get('motivo_correccion')?.invalid">
+        </textarea>
+        <span class="error-text" *ngIf="creditNoteForm.get('motivo_correccion')?.touched && creditNoteForm.get('motivo_correccion')?.invalid">
+          El motivo es requerido (mínimo 10 caracteres)
+        </span>
+      </div>
+
+      <div class="form-group">
+        <label for="descripcion_correccion">Descripción Adicional</label>
+        <textarea 
+          id="descripcion_correccion"
+          formControlName="descripcion_correccion"
+          class="form-control"
+          rows="2"
+          placeholder="Descripción adicional (opcional)">
+        </textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="observaciones">Observaciones</label>
+        <textarea 
+          id="observaciones"
+          formControlName="observaciones"
+          class="form-control"
+          rows="2"
+          placeholder="Observaciones internas (opcional)">
+        </textarea>
+      </div>
+    </div>
+
+    <!-- Items de la nota crédito -->
+    <div class="form-section" formArrayName="items">
+      <h2> Items a Incluir</h2>
+      <p class="section-description">Seleccione los items de la factura que desea incluir en la nota crédito</p>
+
+      <div class="items-list" *ngIf="items.length > 0">
+        <div class="item-card" *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
+          <div class="item-header">
+            <label class="checkbox-container">
+              <input type="checkbox" formControlName="incluir">
+              <span class="checkmark"></span>
+              <span class="item-name">{{ item.value.nombre_producto }}</span>
+            </label>
+            <span class="item-code">{{ item.value.codigo_producto }}</span>
+          </div>
+
+          <div class="item-fields" *ngIf="item.value.incluir">
+            <div class="field-row">
+              <div class="field">
+                <label>Cantidad</label>
+                <input 
+                  type="number" 
+                  formControlName="cantidad"
+                  class="form-control"
+                  step="0.01"
+                  min="0.01"
+                  [max]="item.value.cantidad_max">
+                <small class="hint">Máx: {{ item.value.cantidad_max }}</small>
+              </div>
+              <div class="field">
+                <label>Precio Unitario</label>
+                <input 
+                  type="number" 
+                  formControlName="precio_unitario"
+                  class="form-control"
+                  step="0.01"
+                  min="0"
+                  readonly>
+              </div>
+              <div class="field">
+                <label>Descuento %</label>
+                <input 
+                  type="number" 
+                  formControlName="descuento_porcentaje"
+                  class="form-control"
+                  step="0.01"
+                  min="0"
+                  max="100">
+              </div>
+              <div class="field">
+                <label>IVA %</label>
+                <input 
+                  type="number" 
+                  formControlName="iva_porcentaje"
+                  class="form-control"
+                  step="0.01"
+                  min="0"
+                  readonly>
+              </div>
+              <div class="field total-field">
+                <label>Total</label>
+                <span class="calculated-total">{{ formatCurrency(getItemTotal(i)) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-items" *ngIf="items.length === 0 && selectedInvoice">
+        <p> La factura seleccionada no tiene items disponibles</p>
+      </div>
+
+      <div class="empty-items" *ngIf="!selectedInvoice">
+        <p> Seleccione una factura para ver los items disponibles</p>
+      </div>
+    </div>
+
+    <!-- Totales -->
+    <div class="form-section totals-section">
+      <h2> Totales</h2>
+      <div class="totals-grid">
+        <div class="total-row">
+          <span class="total-label">Subtotal:</span>
+          <span class="total-value">{{ formatCurrency(totals.subtotal) }}</span>
+        </div>
+        <div class="total-row" *ngIf="totals.totalDescuentos > 0">
+          <span class="total-label">Descuentos:</span>
+          <span class="total-value discount">-{{ formatCurrency(totals.totalDescuentos) }}</span>
+        </div>
+        <div class="total-row">
+          <span class="total-label">IVA:</span>
+          <span class="total-value">{{ formatCurrency(totals.totalIva) }}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span class="total-label">TOTAL NOTA CRÉDITO:</span>
+          <span class="total-value">{{ formatCurrency(totals.total) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" (click)="goBack()">
+        Cancelar
+      </button>
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        [disabled]="isSubmitting || creditNoteForm.invalid || totals.total <= 0">
+        <span *ngIf="isSubmitting" class="spinner-small"></span>
+        <span *ngIf="!isSubmitting">📝 Crear Nota Crédito</span>
+        <span *ngIf="isSubmitting">Procesando...</span>
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,3 +1,215 @@
 /* You can add global styles to this file, and also import other style files */
 
 @import "tailwindcss";
+
+/* ============================================
+   TEMA OSCURO - Dark Theme
+   ============================================ */
+
+/* Variables de tema */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+}
+
+/* Tema oscuro */
+.dark-theme {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-card: #1f2937;
+  --text-primary: #f9fafb;
+  --text-secondary: #9ca3af;
+  --border-color: #374151;
+}
+
+/* Aplicar variables de tema */
+.dark-theme {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-theme .bg-white {
+  background-color: #334155 !important;
+}
+
+.dark-theme .bg-gray-50 {
+  background-color: #1e293b !important;
+}
+
+.dark-theme .bg-gray-100 {
+  background-color: #475569 !important;
+}
+
+/* Cards y contenedores con bordes */
+.dark-theme .rounded-lg,
+.dark-theme .rounded-xl,
+.dark-theme .rounded-2xl {
+  background-color: #334155;
+}
+
+/* Asegurar que las cards con shadow tengan el fondo correcto */
+.dark-theme .shadow-sm.bg-white,
+.dark-theme .shadow.bg-white,
+.dark-theme .border.bg-white {
+  background-color: #334155 !important;
+}
+
+.dark-theme .text-gray-900 {
+  color: #ffffff !important;
+}
+
+.dark-theme .text-gray-800 {
+  color: #ffffff !important;
+}
+
+.dark-theme .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+.dark-theme .text-gray-600 {
+  color: #e5e7eb !important;
+}
+
+.dark-theme .text-gray-500 {
+  color: #d1d5db !important;
+}
+
+.dark-theme .text-gray-400 {
+  color: #9ca3af !important;
+}
+
+.dark-theme .border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme .border-gray-300 {
+  border-color: #4b5563 !important;
+}
+
+.dark-theme .border-gray-100 {
+  border-color: #374151 !important;
+}
+
+.dark-theme .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+
+.dark-theme .hover\:bg-gray-100:hover {
+  background-color: #4b5563 !important;
+}
+
+.dark-theme .hover\:text-gray-900:hover {
+  color: #f9fafb !important;
+}
+
+.dark-theme nav {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.dark-theme input,
+.dark-theme select,
+.dark-theme textarea {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-theme input::placeholder {
+  color: #6b7280 !important;
+}
+
+.dark-theme table thead {
+  background-color: var(--bg-secondary) !important;
+}
+
+.dark-theme table tbody tr:hover {
+  background-color: #374151 !important;
+}
+
+.dark-theme .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.dark-theme .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ============================================
+   Estilos específicos para componentes con CSS personalizado
+   ============================================ */
+
+/* Cards de estadísticas y contenedores */
+.dark-theme .stat-card,
+.dark-theme .table-container,
+.dark-theme .filters-section,
+.dark-theme .empty-state,
+.dark-theme .data-table {
+  background-color: #334155 !important;
+  color: #e5e7eb !important;
+}
+
+/* Tablas */
+.dark-theme .data-table thead {
+  background-color: #334155 !important;
+}
+
+.dark-theme .data-table th {
+  color: #f3f4f6 !important;
+  border-color: #475569 !important;
+}
+
+.dark-theme .data-table td {
+  color: #e5e7eb !important;
+  border-color: #374151 !important;
+}
+
+.dark-theme .data-table tbody tr:hover {
+  background-color: #334155 !important;
+}
+
+/* Headers y títulos */
+.dark-theme .header h1,
+.dark-theme h1,
+.dark-theme h2,
+.dark-theme h3 {
+  color: #ffffff !important;
+}
+
+/* Labels y textos secundarios */
+.dark-theme .stat-label,
+.dark-theme label,
+.dark-theme .form-label {
+  color: #9ca3af !important;
+}
+
+.dark-theme .stat-value {
+  color: #ffffff !important;
+}
+
+/* Select y formularios con estilos personalizados */
+.dark-theme .form-select,
+.dark-theme select {
+  background-color: #334155 !important;
+  color: #e5e7eb !important;
+  border-color: #475569 !important;
+}
+
+/* Empty states */
+.dark-theme .empty-state p,
+.dark-theme .empty-message {
+  color: #9ca3af !important;
+}
+
+/* Transición suave al cambiar tema */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark-theme * {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

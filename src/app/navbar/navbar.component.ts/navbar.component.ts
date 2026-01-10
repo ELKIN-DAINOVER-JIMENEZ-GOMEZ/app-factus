@@ -1,8 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthServices, User } from '../../services/auth-services';
-import { filter } from 'rxjs/operators';
+import { filter, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 
 interface NavItem {
   label: string;
@@ -15,76 +16,55 @@ interface NavItem {
   selector: 'app-navbar',
   imports: [CommonModule, RouterModule],
   templateUrl: './navbar.component.html',
-  
 })
-export class NavbarComponent implements OnInit {
+export class NavbarComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
 
- currentUser: User | null = null;
+  currentUser: User | null = null;
   currentRoute = '';
   showUserMenu = false;
   isMobileMenuOpen = false;
 
   navItems: NavItem[] = [
-    
-    {
-      label: 'Facturas',
-      icon: 'receipt',
-      route: '/invoices',
-      badge: 3
-    },
-    {
-      label: 'Notas Crédito',
-      icon: 'document',
-      route: '/credit-notes'
-    },
-    {
-      label: 'Clientes',
-      icon: 'users',
-      route: '/clients'
-    },
-    {
-      label: 'Productos',
-      icon: 'cube',
-      route: '/products'
-    },
-    {
-      label: 'Tienda',
-      icon: 'shop',
-      route: '/shop'
-    },
-    {
-      label: 'Reportes',
-      icon: 'chart',
-      route: '/reports'
-    },
-    {
-      label: 'Configuración',
-      icon: 'settings',
-      route: '/settings'
-    }
+    { label: 'Facturas', icon: 'receipt', route: '/invoices' },
+    { label: 'Notas Crédito', icon: 'document', route: '/credit-notes' },
+    { label: 'Clientes', icon: 'users', route: '/clients' },
+    { label: 'Productos', icon: 'cube', route: '/products' }
   ];
-    constructor(
+
+  constructor(
     private authService: AuthServices,
     private router: Router
   ) {}
 
   ngOnInit(): void {
-    // Obtener usuario actual
-    this.authService.currentUser$.subscribe(user => {
-      this.currentUser = user;
-    });
+    const savedTheme = localStorage.getItem('darkTheme');
+    if (savedTheme === 'true') {
+      document.body.classList.add('dark-theme');
+    }
 
-    // Trackear ruta actual
+    this.authService.currentUser$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(user => this.currentUser = user);
+
     this.currentRoute = this.router.url;
     this.router.events
-      .pipe(filter(event => event instanceof NavigationEnd))
+      .pipe(
+        filter(event => event instanceof NavigationEnd),
+        takeUntil(this.destroy$)
+      )
       .subscribe((event: any) => {
         this.currentRoute = event.url;
-        this.isMobileMenuOpen = false; // Cerrar menú móvil al navegar
+        this.isMobileMenuOpen = false;
       });
 
-    // Cerrar menú al hacer click fuera
     document.addEventListener('click', this.closeMenus.bind(this));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    document.removeEventListener('click', this.closeMenus.bind(this));
   }
 
   isActiveRoute(route: string): boolean {
@@ -98,6 +78,16 @@ export class NavbarComponent implements OnInit {
 
   toggleMobileMenu(): void {
     this.isMobileMenuOpen = !this.isMobileMenuOpen;
+  }
+
+  toggleDarkTheme(): void {
+    document.body.classList.toggle('dark-theme');
+    const isDark = document.body.classList.contains('dark-theme');
+    localStorage.setItem('darkTheme', isDark ? 'true' : 'false');
+  }
+
+  isDarkTheme(): boolean {
+    return document.body.classList.contains('dark-theme');
   }
 
   closeMenus(): void {

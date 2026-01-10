@@ -1,0 +1,217 @@
+<!-- credit-note-list.component.html -->
+<div class="credit-notes-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-content">
+      <h1>Notas Crédito</h1>
+      <a routerLink="/credit-notes/create" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nueva Nota Crédito
+      </a>
+    </div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="stats-grid">
+    <div class="stat-card card-total">
+      <div class="stat-content">
+        <span class="stat-icon-emoji"></span>
+        <span class="stat-value">{{ stats.total }}</span>
+        <span class="stat-label">Total</span>
+      </div>
+    </div>
+    <div class="stat-card card-draft">
+      <div class="stat-content">
+        <span class="stat-icon-emoji"></span>
+        <span class="stat-value">{{ stats.borradores }}</span>
+        <span class="stat-label">Borradores</span>
+      </div>
+    </div>
+    <div class="stat-card card-success">
+      <div class="stat-content">
+        <span class="stat-icon-emoji"></span>
+        <span class="stat-value">{{ stats.enviadas }}</span>
+        <span class="stat-label">Enviadas</span>
+      </div>
+    </div>
+    <div class="stat-card card-error">
+      <div class="stat-content">
+        <span class="stat-icon-emoji"></span>
+        <span class="stat-value">{{ stats.errores }}</span>
+        <span class="stat-label">Con Errores</span>
+      </div>
+    </div>
+    <div class="stat-card card-money wide">
+      <div class="stat-content">
+        <span class="stat-icon-emoji"></span>
+        <span class="stat-value">{{ formatCurrency(stats.montoTotal) }}</span>
+        <span class="stat-label">Monto Total Emitido</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <div class="filter-group">
+      <label>Estado:</label>
+      <select [(ngModel)]="estadoFiltro" (change)="onFilterChange()" class="form-select">
+        <option value="">Todos</option>
+        <option value="Borrador">Borrador</option>
+        <option value="Enviada">Enviada</option>
+        <option value="Error">Error</option>
+      </select>
+    </div>
+    <button (click)="loadCreditNotes()" class="btn btn-secondary" [disabled]="isLoading">
+      🔄 Actualizar
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-overlay">
+    <div class="spinner"></div>
+    <p>Cargando notas crédito...</p>
+  </div>
+
+  <!-- Tabla de notas crédito -->
+  <div class="table-container" *ngIf="!isLoading">
+    <table class="data-table" *ngIf="creditNotes.length > 0">
+      <thead>
+        <tr>
+          <th>Número</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Factura Ref.</th>
+          <th>Motivo</th>
+          <th>Total</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let creditNote of creditNotes">
+          <td class="cell-numero">
+            <strong>{{ creditNote.numero_nota || 'Sin número' }}</strong>
+            <small *ngIf="creditNote.factus_id" class="factus-id">
+              Factus: {{ creditNote.factus_id }}
+            </small>
+          </td>
+          <td>{{ creditNote.fecha_emision | date:'dd/MM/yyyy' }}</td>
+          <td>{{ getClientName(creditNote) }}</td>
+          <td>{{ getInvoiceNumber(creditNote) }}</td>
+          <td class="cell-motivo">
+            <span class="motivo-badge" [title]="creditNote.descripcion_correccion || creditNote.motivo_correccion || ''">
+              {{ (creditNote.motivo_correccion || '') | slice:0:20 }}{{ (creditNote.motivo_correccion || '').length > 20 ? '...' : '' }}
+            </span>
+          </td>
+          <td class="cell-total">{{ formatCurrency(creditNote.total) }}</td>
+          <td>
+            <span class="badge" [ngClass]="getEstadoClass(creditNote.estado_local || '')">
+              {{ creditNote.estado_local }}
+            </span>
+          </td>
+          <td class="cell-actions">
+            <div class="action-buttons">
+              <button 
+                *ngIf="creditNote.estado_local === 'Borrador'"
+                (click)="emitCreditNote(creditNote)"
+                class="btn btn-sm "
+                title="Emitir a DIAN"
+                [disabled]="isLoading">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              </button>
+              
+              <button 
+                *ngIf="creditNote.estado_local === 'Enviada'"
+                (click)="downloadPDF(creditNote)"
+                class="btn btn-sm"
+                title="Descargar PDF"
+                [disabled]="isDownloading[creditNote.id!]">
+                <span *ngIf="isDownloading[creditNote.id!]" class="spinner-small"></span>
+                <svg *ngIf="!isDownloading[creditNote.id!]" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+
+              <button 
+                *ngIf="creditNote.estado_local === 'Borrador'"
+                (click)="deleteCreditNote(creditNote)"
+                class="btn btn-sm"
+                title="Eliminar nota crédito"
+                [disabled]="isLoading">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Estado vacío -->
+    <div *ngIf="creditNotes.length === 0" class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>No hay notas crédito</h3>
+      <p>Crea una nueva nota crédito para comenzar.</p>
+      <a routerLink="/credit-notes/create" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Crear Nota Crédito
+      </a>
+    </div>
+  </div>
+
+  <!-- Paginación -->
+  <div class="pagination" *ngIf="totalPages > 1">
+    <button 
+      (click)="onPageChange(1)" 
+      [disabled]="currentPage === 1"
+      class="btn btn-sm">
+      ⏮️
+    </button>
+    <button 
+      (click)="onPageChange(currentPage - 1)" 
+      [disabled]="currentPage === 1"
+      class="btn btn-sm">
+      ◀️
+    </button>
+    
+    <button 
+      *ngFor="let page of getPageNumbers()"
+      (click)="onPageChange(page)"
+      [class.active]="page === currentPage"
+      class="btn btn-sm btn-page">
+      {{ page }}
+    </button>
+    
+    <button 
+      (click)="onPageChange(currentPage + 1)" 
+      [disabled]="currentPage === totalPages"
+      class="btn btn-sm">
+      ▶️
+    </button>
+    <button 
+      (click)="onPageChange(totalPages)" 
+      [disabled]="currentPage === totalPages"
+      class="btn btn-sm">
+      ⏭️
+    </button>
+    
+    <span class="pagination-info">
+      Página {{ currentPage }} de {{ totalPages }} ({{ totalItems }} registros)
+    </span>
+  </div>
+</div>
+
+<!-- Modal PDF -->
+<div class="modal-overlay" *ngIf="showPdfModal" (click)="closePdfModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>✅ Nota Crédito Emitida</h3>
+      <button class="close-btn" (click)="closePdfModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p>La nota crédito <strong>{{ pdfModalData.numero }}</strong> ha sido emitida exitosamente a la DIAN.</p>
+      <p>¿Desea ver el documento?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" (click)="closePdfModal()">Cerrar</button>
+      <button class="btn btn-primary" (click)="openPdfInNewTab()">
+        📄 Ver Documento
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,8 +1,3 @@
-/**
- * Componente de Lista de Facturas
- * Muestra todas las facturas generadas con opciones de filtrado y acciones
- */
-
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
@@ -40,32 +35,19 @@ interface Invoice {
 export class InvoiceListComponent implements OnInit {
   invoices: Invoice[] = [];
   filteredInvoices: Invoice[] = [];
-  
-  // Para usar Math en el template
   Math = Math;
-  
-  // Estados
+
   loading = false;
-  
-  // Filtros
   searchTerm = '';
   statusFilter = '';
   dateFrom = '';
   dateTo = '';
-  
-  // Paginación
+
   currentPage = 1;
   pageSize = 10;
   totalItems = 0;
-  
-  // Estadísticas
-  stats = {
-    total: 0,
-    enviadas: 0,
-    pendientes: 0,
-    rechazadas: 0,
-    totalMonto: 0
-  };
+
+  stats = { total: 0, enviadas: 0, pendientes: 0, rechazadas: 0, totalMonto: 0 };
 
   constructor(
     private invoiceService: InvoiceService,
@@ -78,14 +60,12 @@ export class InvoiceListComponent implements OnInit {
 
   loadInvoices(): void {
     this.loading = true;
-    
     this.invoiceService.getInvoices({
       page: this.currentPage,
       pageSize: this.pageSize,
       estado: this.statusFilter || undefined
     }).subscribe({
       next: (response: any) => {
-        // Mapear la respuesta de Strapi
         const rawData = response.data || [];
         this.invoices = rawData.map((item: any) => ({
           id: item.id,
@@ -107,10 +87,8 @@ export class InvoiceListComponent implements OnInit {
         this.filteredInvoices = [...this.invoices];
         this.calculateStats();
         this.loading = false;
-        console.log('✅ Facturas cargadas:', this.invoices.length);
       },
-      error: (error) => {
-        console.error('❌ Error cargando facturas:', error);
+      error: () => {
         this.loading = false;
         this.invoices = [];
         this.filteredInvoices = [];
@@ -118,7 +96,7 @@ export class InvoiceListComponent implements OnInit {
     });
   }
 
-  calculateStats(): void {
+  private calculateStats(): void {
     this.stats = {
       total: this.invoices.length,
       enviadas: this.invoices.filter(i => i.estado_local === 'Enviada').length,
@@ -175,7 +153,6 @@ export class InvoiceListComponent implements OnInit {
 
   downloadPDF(invoice: Invoice): void {
     const documentId = invoice.factus_id || invoice.id;
-    
     this.invoiceService.downloadPDFAsBlob(documentId).subscribe({
       next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
@@ -186,27 +163,41 @@ export class InvoiceListComponent implements OnInit {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        console.log('✅ PDF descargado');
       },
-      error: (error) => {
-        console.error('❌ Error descargando PDF:', error);
-        alert('Error descargando el PDF. La factura puede no estar emitida aún.');
+      error: () => alert('Error descargando el PDF. La factura puede no estar emitida aún.')
+    });
+  }
+
+  deleteInvoice(invoice: Invoice): void {
+    if (!confirm(`¿Estás seguro de eliminar la factura ${invoice.numero_factura || 'FAC-' + invoice.id}?\n\nEsta acción no se puede deshacer.`)) return;
+
+    this.loading = true;
+    const deleteId = invoice.documentId || invoice.id;
+    
+    this.invoiceService.deleteInvoice(deleteId as any).subscribe({
+      next: () => {
+        this.invoices = this.invoices.filter(i => i.id !== invoice.id);
+        this.filteredInvoices = this.filteredInvoices.filter(i => i.id !== invoice.id);
+        this.totalItems = this.invoices.length;
+        this.calculateStats();
+        this.loading = false;
+        alert('Factura eliminada exitosamente');
+      },
+      error: () => {
+        this.loading = false;
+        alert('Error al eliminar la factura. Por favor intenta de nuevo.');
       }
     });
   }
 
   getStatusClass(status: string): string {
-    switch (status) {
-      case 'Enviada':
-        return 'bg-green-100 text-green-800';
-      case 'Pendiente':
-      case 'Borrador':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Rechazada':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const classes: Record<string, string> = {
+      'Enviada': 'bg-green-100 text-green-800',
+      'Pendiente': 'bg-yellow-100 text-yellow-800',
+      'Borrador': 'bg-yellow-100 text-yellow-800',
+      'Rechazada': 'bg-red-100 text-red-800'
+    };
+    return classes[status] || 'bg-gray-100 text-gray-800';
   }
 
   formatCurrency(value: number): string {

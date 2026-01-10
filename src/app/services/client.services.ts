@@ -1,20 +1,11 @@
-/**
- * Servicio de Clientes para Angular (Simplificado)
- * Ubicación: src/app/services/client.service.ts
- * 
- * ✅ Ya no necesita agregar headers manualmente
- * ✅ El interceptor lo hace automáticamente
- */
-
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, throwError, BehaviorSubject } from 'rxjs';
+import { Observable, throwError, BehaviorSubject, of } from 'rxjs';
 import { tap, catchError, map } from 'rxjs/operators';
 import { environment } from '../environments/environment';
 
-// Interfaces (mantener las mismas)
 export interface Client {
-  id?:string;
+  id?: string;
   nombre_completo: string;
   tipo_documento: 'CC' | 'NIT' | 'CE' | 'TI' | 'PP' | 'PEP';
   numero_documento: string;
@@ -59,17 +50,13 @@ export interface ClientListResponse {
   providedIn: 'root'
 })
 export class ClientService {
-  private apiUrl = environment.apiUrl || 'http://localhost:1337';
+  private readonly apiUrl = environment.apiUrl || 'http://localhost:1337';
   
   private clientsUpdated = new BehaviorSubject<boolean>(false);
   public clientsUpdated$ = this.clientsUpdated.asObservable();
 
   constructor(private http: HttpClient) {}
 
-  /**
-   * 📋 Listar clientes
-   * ✅ Ya no necesita headers - el interceptor los agrega
-   */
   getClients(params?: {
     page?: number;
     pageSize?: number;
@@ -94,35 +81,21 @@ export class ClientService {
     }
 
     const url = `${this.apiUrl}/api/clients?${queryParams.toString()}`;
-    console.log('📤 GET:', url);
 
-    // ✅ Sin headers - el interceptor los agrega automáticamente
     return this.http.get<ClientListResponse>(url).pipe(
-      tap(response => {
-        console.log('✅ Clientes obtenidos:', response.data.length);
-      }),
       catchError(this.handleError.bind(this))
     );
   }
 
-  /**
-   * 🔍 Obtener cliente por ID
-   */
   getClient(id: string): Observable<ClientResponse> {
     return this.http.get<ClientResponse>(
       `${this.apiUrl}/api/clients/${id}`
     ).pipe(
-      tap(() => console.log(`✅ Cliente ${id} obtenido`)),
       catchError(this.handleError.bind(this))
     );
   }
 
-  /**
-   * ➕ Crear cliente
-   */
   createClient(client: Client): Observable<ClientResponse> {
-    console.log('📝 Creando cliente...', client);
-
     const payload = {
       data: {
         ...client,
@@ -135,44 +108,27 @@ export class ClientService {
       `${this.apiUrl}/api/clients`,
       payload
     ).pipe(
-      tap((response) => {
-        console.log('✅ Cliente creado:', response.data.id);
-        this.clientsUpdated.next(true);
-      }),
+      tap(() => this.clientsUpdated.next(true)),
       catchError(this.handleError.bind(this))
     );
   }
 
-  /**
-   * ✏️ Actualizar cliente
-   */
   updateClient(id: string, client: Partial<Client>): Observable<ClientResponse> {
-    console.log(`✏️ Actualizando cliente ${id}...`);
-
     const payload = { data: client };
 
     return this.http.put<ClientResponse>(
       `${this.apiUrl}/api/clients/${id}`,
       payload
     ).pipe(
-      tap(() => {
-        console.log(`✅ Cliente ${id} actualizado`);
-        this.clientsUpdated.next(true);
-      }),
+      tap(() => this.clientsUpdated.next(true)),
       catchError(this.handleError.bind(this))
     );
   }
 
-  /**
-   * 🗑️ Eliminar cliente (soft delete)
-   */
   deleteClient(id: string): Observable<any> {
     return this.updateClient(id, { activo: false });
   }
 
-  /**
-   * ✅ Verificar si un documento ya existe
-   */
   checkDocumentExists(numeroDocumento: string, excludeId?: string): Observable<boolean> {
     const queryParams = new URLSearchParams();
     queryParams.append('filters[numero_documento][$eq]', numeroDocumento);
@@ -189,9 +145,6 @@ export class ClientService {
     );
   }
 
-  /**
-   * ✅ Verificar si un email ya existe
-   */
   checkEmailExists(email: string, excludeId?: number): Observable<boolean> {
     const queryParams = new URLSearchParams();
     queryParams.append('filters[email][$eq]', email.toLowerCase());
@@ -208,9 +161,6 @@ export class ClientService {
     );
   }
 
-  /**
-   * 🔢 Calcular dígito de verificación para NIT
-   */
   calculateDigitoVerificacion(nit: string): string {
     const nitClean = nit.replace(/\D/g, '');
     const primos = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71];
@@ -226,37 +176,35 @@ export class ClientService {
     return dv.toString();
   }
 
-  /**
-   * 🔔 Notificar actualización de clientes
-   */
   notifyClientsUpdated(): void {
     this.clientsUpdated.next(true);
   }
 
-  /**
-   * ❌ Manejo de errores mejorado
-   */
+  searchMunicipalities(name: string): Observable<Municipality[]> {
+    if (!name || name.length < 2) {
+      return of([]);
+    }
+
+    const url = `${this.apiUrl}/api/factus/municipalities/autocomplete?name=${encodeURIComponent(name)}`;
+
+    return this.http.get<MunicipalityResponse>(url).pipe(
+      map(response => response.data || []),
+      catchError(() => of([]))
+    );
+  }
+
   private handleError(error: HttpErrorResponse): Observable<never> {
     let errorMessage = 'Error desconocido';
 
-    console.error('❌ Error HTTP:', {
-      status: error.status,
-      statusText: error.statusText,
-      url: error.url,
-      error: error.error
-    });
-
     if (error.error instanceof ErrorEvent) {
-      // Error del cliente (red)
       errorMessage = `Error de red: ${error.error.message}`;
     } else {
-      // Error del servidor
       if (error.status === 0) {
-        errorMessage = '❌ No se pudo conectar con el servidor. Verifica que Strapi esté ejecutándose en http://localhost:1337';
+        errorMessage = 'No se pudo conectar con el servidor. Verifica que Strapi esté ejecutándose en http://localhost:1337';
       } else if (error.status === 403) {
-        errorMessage = '🚫 Acceso denegado. Verifica los permisos en Strapi (Settings → Roles → Authenticated → Client)';
+        errorMessage = 'Acceso denegado. Verifica los permisos en Strapi';
       } else if (error.status === 401) {
-        errorMessage = '🔐 Token inválido o expirado. Por favor inicia sesión nuevamente.';
+        errorMessage = 'Token inválido o expirado. Por favor inicia sesión nuevamente.';
       } else if (error.error?.error?.message) {
         errorMessage = error.error.error.message;
       } else if (error.error?.message) {
@@ -267,8 +215,7 @@ export class ClientService {
         errorMessage = `Error ${error.status}: ${error.statusText}`;
       }
 
-      // Traducir mensajes comunes
-      const translations: { [key: string]: string } = {
+      const translations: Record<string, string> = {
         'already taken': 'El documento o email ya está registrado',
         'Forbidden': 'No tienes permisos para realizar esta acción',
         'Unauthorized': 'Sesión expirada. Inicia sesión nuevamente.'
@@ -282,7 +229,21 @@ export class ClientService {
       }
     }
 
-    console.error('❌ Error procesado:', errorMessage);
     return throwError(() => new Error(errorMessage));
   }
+}
+
+export interface Municipality {
+  id: number;
+  name: string;
+  department: string;
+  department_id?: number;
+  display: string;
+}
+
+export interface MunicipalityResponse {
+  success: boolean;
+  data: Municipality[];
+  total: number;
+  search?: string;
 }

@@ -1,44 +1,41 @@
-/**
- * Componente de Crear Cliente
- * Ubicación: src/app/components/clients/create-client/create-client.component.ts
- */
-
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { ClientService, Client } from '../services/client.services';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { ClientService, Client, Municipality } from '../services/client.services';
+import { debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs/operators';
+import { of, Subject } from 'rxjs';
 
 @Component({
   selector: 'app-create-client',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule],
-  templateUrl: './clients.html',
-  
+  templateUrl: './clients.html'
 })
-export class CreateClientComponent implements OnInit {
+export class CreateClientComponent implements OnInit, OnDestroy {
+  @ViewChild('municipalityInput') municipalityInput!: ElementRef;
+  
   clientForm!: FormGroup;
   
-  // Estados
   loading = false;
   saving = false;
-  
-  // Validaciones asíncronas
   checkingDocument = false;
   checkingEmail = false;
   documentExists = false;
   emailExists = false;
-  
-  // Dígito de verificación automático
   autoCalculatedDV = '';
-  
-  // Errores
   errors: string[] = [];
   successMessage = '';
 
-  // Opciones para selects
+  municipalitySearch = '';
+  municipalitySuggestions: Municipality[] = [];
+  showMunicipalitySuggestions = false;
+  loadingMunicipalities = false;
+  selectedMunicipality: Municipality | null = null;
+  highlightedIndex = -1;
+  
+  private destroy$ = new Subject<void>();
+
   tiposDocumento = [
     { value: 'CC', label: 'Cédula de Ciudadanía' },
     { value: 'NIT', label: 'NIT' },
@@ -60,23 +57,7 @@ export class CreateClientComponent implements OnInit {
     { value: 'simple', label: 'Régimen Simple' }
   ];
 
-  // Ciudades principales de Colombia (puedes expandir esto)
-  ciudades = [
-    { nombre: 'Bogotá D.C.', codigo: '11001', departamento: 'Cundinamarca' },
-    { nombre: 'Medellín', codigo: '05001', departamento: 'Antioquia' },
-    { nombre: 'Cali', codigo: '76001', departamento: 'Valle del Cauca' },
-    { nombre: 'Barranquilla', codigo: '08001', departamento: 'Atlántico' },
-    { nombre: 'Cartagena', codigo: '13001', departamento: 'Bolívar' },
-    { nombre: 'Cúcuta', codigo: '54001', departamento: 'Norte de Santander' },
-    { nombre: 'Bucaramanga', codigo: '68001', departamento: 'Santander' },
-    { nombre: 'Pereira', codigo: '66001', departamento: 'Risaralda' },
-    { nombre: 'Santa Marta', codigo: '47001', departamento: 'Magdalena' },
-    { nombre: 'Ibagué', codigo: '73001', departamento: 'Tolima' },
-    { nombre: 'Pasto', codigo: '52001', departamento: 'Nariño' },
-    { nombre: 'Manizales', codigo: '17001', departamento: 'Caldas' },
-    { nombre: 'Villavicencio', codigo: '50001', departamento: 'Meta' },
-    { nombre: 'Valledupar', codigo: '20001', departamento: 'Cesar' }
-  ];
+  ciudades: any[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -89,52 +70,36 @@ export class CreateClientComponent implements OnInit {
     this.setupValidations();
   }
 
-  // ============================================
-  // INICIALIZACIÓN DEL FORMULARIO
-  // ============================================
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
 
-  initForm(): void {
+  private initForm(): void {
     this.clientForm = this.fb.group({
-      // Información básica
       nombre_completo: ['', [Validators.required, Validators.maxLength(255)]],
       tipo_documento: ['CC', Validators.required],
       numero_documento: ['', [Validators.required, Validators.maxLength(20)]],
       digito_verificacion: [''],
-      
-      // Información jurídica (opcional para personas naturales)
       razon_social: ['', Validators.maxLength(255)],
       nombre_comercial: ['', Validators.maxLength(255)],
-      
-      // Contacto
       email: ['', [Validators.required, Validators.email]],
       telefono: ['', Validators.maxLength(20)],
-      
-      // Dirección
       direccion: ['', [Validators.required, Validators.maxLength(500)]],
       ciudad: ['', Validators.required],
       ciudad_codigo: ['', Validators.required],
       departamento: [''],
       codigo_postal: ['', Validators.maxLength(10)],
-      
-      // Clasificación fiscal
       tipo_persona: ['Natural', Validators.required],
       regimen_fiscal: ['responsable_iva', Validators.required],
-      
-      // Otros
       activo: [true],
       notas: ['']
     });
 
-    // Configurar validaciones condicionales
     this.setupConditionalValidations();
   }
 
-  // ============================================
-  // VALIDACIONES
-  // ============================================
-
-  setupValidations(): void {
-    // Validación de documento duplicado
+  private setupValidations(): void {
     this.clientForm.get('numero_documento')?.valueChanges.pipe(
       debounceTime(500),
       distinctUntilChanged(),
@@ -145,7 +110,8 @@ export class CreateClientComponent implements OnInit {
         }
         this.checkingDocument = true;
         return this.clientService.checkDocumentExists(value);
-      })
+      }),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: (exists) => {
         this.checkingDocument = false;
@@ -154,12 +120,9 @@ export class CreateClientComponent implements OnInit {
           this.clientForm.get('numero_documento')?.setErrors({ duplicate: true });
         }
       },
-      error: () => {
-        this.checkingDocument = false;
-      }
+      error: () => this.checkingDocument = false
     });
 
-    // Validación de email duplicado
     this.clientForm.get('email')?.valueChanges.pipe(
       debounceTime(500),
       distinctUntilChanged(),
@@ -170,7 +133,8 @@ export class CreateClientComponent implements OnInit {
         }
         this.checkingEmail = true;
         return this.clientService.checkEmailExists(value);
-      })
+      }),
+      takeUntil(this.destroy$)
     ).subscribe({
       next: (exists) => {
         this.checkingEmail = false;
@@ -179,80 +143,59 @@ export class CreateClientComponent implements OnInit {
           this.clientForm.get('email')?.setErrors({ duplicate: true });
         }
       },
-      error: () => {
-        this.checkingEmail = false;
-      }
+      error: () => this.checkingEmail = false
     });
 
-    // Calcular DV automáticamente para NIT
-    this.clientForm.get('tipo_documento')?.valueChanges.subscribe(tipo => {
-      if (tipo === 'NIT') {
-        const numero = this.clientForm.get('numero_documento')?.value;
-        if (numero) {
+    this.clientForm.get('tipo_documento')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(tipo => {
+        if (tipo === 'NIT') {
+          const numero = this.clientForm.get('numero_documento')?.value;
+          if (numero) this.calculateDV(numero);
+        } else {
+          this.autoCalculatedDV = '';
+          this.clientForm.get('digito_verificacion')?.setValue('');
+        }
+      });
+
+    this.clientForm.get('numero_documento')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(numero => {
+        if (this.clientForm.get('tipo_documento')?.value === 'NIT' && numero) {
           this.calculateDV(numero);
         }
-      } else {
-        this.autoCalculatedDV = '';
-        this.clientForm.get('digito_verificacion')?.setValue('');
-      }
-    });
-
-    this.clientForm.get('numero_documento')?.valueChanges.subscribe(numero => {
-      if (this.clientForm.get('tipo_documento')?.value === 'NIT' && numero) {
-        this.calculateDV(numero);
-      }
-    });
+      });
   }
 
-  setupConditionalValidations(): void {
-    // Si es persona jurídica, razón social es requerida
-    this.clientForm.get('tipo_persona')?.valueChanges.subscribe(tipo => {
-      const razonSocialControl = this.clientForm.get('razon_social');
-      
-      if (tipo === 'Juridica') {
-        razonSocialControl?.setValidators([Validators.required, Validators.maxLength(255)]);
-        // Para personas jurídicas, sugerir NIT
-        if (this.clientForm.get('tipo_documento')?.value === 'CC') {
-          this.clientForm.get('tipo_documento')?.setValue('NIT');
+  private setupConditionalValidations(): void {
+    this.clientForm.get('tipo_persona')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(tipo => {
+        const razonSocialControl = this.clientForm.get('razon_social');
+        
+        if (tipo === 'Juridica') {
+          razonSocialControl?.setValidators([Validators.required, Validators.maxLength(255)]);
+          if (this.clientForm.get('tipo_documento')?.value === 'CC') {
+            this.clientForm.get('tipo_documento')?.setValue('NIT');
+          }
+        } else {
+          razonSocialControl?.setValidators([Validators.maxLength(255)]);
+          razonSocialControl?.setValue('');
         }
-      } else {
-        razonSocialControl?.setValidators([Validators.maxLength(255)]);
-        razonSocialControl?.setValue('');
-      }
-      
-      razonSocialControl?.updateValueAndValidity();
-    });
+        
+        razonSocialControl?.updateValueAndValidity();
+      });
   }
 
-  // ============================================
-  // MÉTODOS DE CÁLCULO
-  // ============================================
-
-  calculateDV(nit: string): void {
+  private calculateDV(nit: string): void {
     const dv = this.clientService.calculateDigitoVerificacion(nit);
     this.autoCalculatedDV = dv;
     this.clientForm.get('digito_verificacion')?.setValue(dv);
   }
 
-  // ============================================
-  // MANEJO DE CIUDAD
-  // ============================================
-
   onCiudadChange(event: any): void {
-    const ciudadNombre = event.target.value;
-    const ciudad = this.ciudades.find(c => c.nombre === ciudadNombre);
-    
-    if (ciudad) {
-      this.clientForm.patchValue({
-        ciudad_codigo: ciudad.codigo,
-        departamento: ciudad.departamento
-      });
-    }
+    // Legacy - usar selectMunicipality() en su lugar
   }
-
-  // ============================================
-  // GUARDAR
-  // ============================================
 
   save(): void {
     if (!this.validateForm()) return;
@@ -260,19 +203,12 @@ export class CreateClientComponent implements OnInit {
     this.saving = true;
     this.clearMessages();
 
-    const clientData = this.prepareClientData();
-
-    this.clientService.createClient(clientData).subscribe({
+    this.clientService.createClient(this.prepareClientData()).subscribe({
       next: (response) => {
         this.saving = false;
         this.showSuccess('Cliente creado exitosamente');
-        
-        // Notificar que se actualizó la lista de clientes
         this.clientService.notifyClientsUpdated();
-        
-        setTimeout(() => {
-          this.router.navigate(['/clients', response.data.id]);
-        }, 1500);
+        setTimeout(() => this.router.navigate(['/clients', response.data.id]), 1500);
       },
       error: (error) => {
         this.saving = false;
@@ -287,17 +223,11 @@ export class CreateClientComponent implements OnInit {
     this.saving = true;
     this.clearMessages();
 
-    const clientData = this.prepareClientData();
-
-    this.clientService.createClient(clientData).subscribe({
-      next: (response) => {
+    this.clientService.createClient(this.prepareClientData()).subscribe({
+      next: () => {
         this.saving = false;
         this.showSuccess('Cliente creado exitosamente');
-        
-        // Notificar que se actualizó la lista de clientes
         this.clientService.notifyClientsUpdated();
-        
-        // Resetear formulario para crear otro
         setTimeout(() => {
           this.clientForm.reset({
             tipo_documento: 'CC',
@@ -315,40 +245,31 @@ export class CreateClientComponent implements OnInit {
     });
   }
 
-  // ============================================
-  // PREPARACIÓN DE DATOS
-  // ============================================
-
-  prepareClientData(): Client {
-    const formValue = this.clientForm.value;
-
+  private prepareClientData(): Client {
+    const f = this.clientForm.value;
     return {
-      nombre_completo: formValue.nombre_completo.trim(),
-      tipo_documento: formValue.tipo_documento,
-      numero_documento: formValue.numero_documento.trim(),
-      digito_verificacion: formValue.digito_verificacion?.trim() || undefined,
-      razon_social: formValue.razon_social?.trim() || undefined,
-      nombre_comercial: formValue.nombre_comercial?.trim() || undefined,
-      email: formValue.email.trim().toLowerCase(),
-      telefono: formValue.telefono?.trim() || undefined,
-      direccion: formValue.direccion.trim(),
-      ciudad: formValue.ciudad,
-      ciudad_codigo: formValue.ciudad_codigo,
-      departamento: formValue.departamento || undefined,
-      codigo_postal: formValue.codigo_postal?.trim() || undefined,
-      tipo_persona: formValue.tipo_persona,
-      regimen_fiscal: formValue.regimen_fiscal,
+      nombre_completo: f.nombre_completo.trim(),
+      tipo_documento: f.tipo_documento,
+      numero_documento: f.numero_documento.trim(),
+      digito_verificacion: f.digito_verificacion?.trim() || undefined,
+      razon_social: f.razon_social?.trim() || undefined,
+      nombre_comercial: f.nombre_comercial?.trim() || undefined,
+      email: f.email.trim().toLowerCase(),
+      telefono: f.telefono?.trim() || undefined,
+      direccion: f.direccion.trim(),
+      ciudad: f.ciudad,
+      ciudad_codigo: f.ciudad_codigo,
+      departamento: f.departamento || undefined,
+      codigo_postal: f.codigo_postal?.trim() || undefined,
+      tipo_persona: f.tipo_persona,
+      regimen_fiscal: f.regimen_fiscal,
       responsabilidades_fiscales: [],
-      activo: formValue.activo,
-      notas: formValue.notas?.trim() || undefined
+      activo: f.activo,
+      notas: f.notas?.trim() || undefined
     };
   }
 
-  // ============================================
-  // VALIDACIÓN
-  // ============================================
-
-  validateForm(): boolean {
+  private validateForm(): boolean {
     this.clearMessages();
 
     if (this.clientForm.invalid) {
@@ -367,31 +288,109 @@ export class CreateClientComponent implements OnInit {
       return false;
     }
 
-    // Validación específica para NIT
-    if (this.clientForm.get('tipo_documento')?.value === 'NIT') {
-      if (!this.clientForm.get('digito_verificacion')?.value) {
-        this.showError('El dígito de verificación es requerido para NIT');
-        return false;
-      }
+    if (this.clientForm.get('tipo_documento')?.value === 'NIT' && 
+        !this.clientForm.get('digito_verificacion')?.value) {
+      this.showError('El dígito de verificación es requerido para NIT');
+      return false;
     }
 
     return true;
   }
 
-  markFormGroupTouched(formGroup: FormGroup): void {
-    Object.keys(formGroup.controls).forEach(key => {
-      const control = formGroup.get(key);
-      control?.markAsTouched();
-
+  private markFormGroupTouched(formGroup: FormGroup): void {
+    Object.values(formGroup.controls).forEach(control => {
+      control.markAsTouched();
       if (control instanceof FormGroup) {
         this.markFormGroupTouched(control);
       }
     });
   }
 
-  // ============================================
-  // UTILIDADES
-  // ============================================
+  onMunicipalitySearch(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.municipalitySearch = input.value;
+    this.highlightedIndex = -1;
+
+    if (this.municipalitySearch.length < 2) {
+      this.municipalitySuggestions = [];
+      this.showMunicipalitySuggestions = false;
+      return;
+    }
+
+    this.loadingMunicipalities = true;
+    this.showMunicipalitySuggestions = true;
+
+    this.clientService.searchMunicipalities(this.municipalitySearch)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (municipalities) => {
+          this.municipalitySuggestions = municipalities;
+          this.loadingMunicipalities = false;
+        },
+        error: () => {
+          this.loadingMunicipalities = false;
+          this.municipalitySuggestions = [];
+        }
+      });
+  }
+
+  selectMunicipality(municipality: Municipality): void {
+    this.selectedMunicipality = municipality;
+    this.municipalitySearch = municipality.name;
+    
+    this.clientForm.patchValue({
+      ciudad: municipality.name,
+      ciudad_codigo: municipality.id.toString(),
+      departamento: municipality.department
+    });
+
+    this.showMunicipalitySuggestions = false;
+    this.municipalitySuggestions = [];
+    this.highlightedIndex = -1;
+  }
+
+  onMunicipalityKeydown(event: KeyboardEvent): void {
+    if (!this.showMunicipalitySuggestions || this.municipalitySuggestions.length === 0) return;
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        this.highlightedIndex = Math.min(this.highlightedIndex + 1, this.municipalitySuggestions.length - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        this.highlightedIndex = Math.max(this.highlightedIndex - 1, 0);
+        break;
+      case 'Enter':
+        event.preventDefault();
+        if (this.highlightedIndex >= 0) {
+          this.selectMunicipality(this.municipalitySuggestions[this.highlightedIndex]);
+        }
+        break;
+      case 'Escape':
+        this.showMunicipalitySuggestions = false;
+        this.highlightedIndex = -1;
+        break;
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.municipality-autocomplete')) {
+      this.showMunicipalitySuggestions = false;
+    }
+  }
+
+  clearMunicipality(): void {
+    this.selectedMunicipality = null;
+    this.municipalitySearch = '';
+    this.clientForm.patchValue({
+      ciudad: '',
+      ciudad_codigo: '',
+      departamento: ''
+    });
+  }
 
   isFieldInvalid(fieldName: string): boolean {
     const field = this.clientForm.get(fieldName);
@@ -400,13 +399,12 @@ export class CreateClientComponent implements OnInit {
 
   getFieldError(fieldName: string): string {
     const field = this.clientForm.get(fieldName);
+    if (!field?.errors) return '';
     
-    if (field?.errors) {
-      if (field.errors['required']) return 'Este campo es requerido';
-      if (field.errors['email']) return 'Email inválido';
-      if (field.errors['maxLength']) return 'Texto demasiado largo';
-      if (field.errors['duplicate']) return 'Ya existe en el sistema';
-    }
+    if (field.errors['required']) return 'Este campo es requerido';
+    if (field.errors['email']) return 'Email inválido';
+    if (field.errors['maxLength']) return 'Texto demasiado largo';
+    if (field.errors['duplicate']) return 'Ya existe en el sistema';
     
     return '';
   }

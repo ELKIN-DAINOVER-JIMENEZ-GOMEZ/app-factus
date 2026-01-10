@@ -1,22 +1,8 @@
-/**
- * Servicio de Facturas - VERSIÓN TOTALMENTE CORREGIDA
- * Ubicación: src/app/services/invoice.service.ts
- * 
- * FIXES PRINCIPALES:
- * ✅ Creación de factura e items en flujo secuencial correcto
- * ✅ Manejo correcto de relaciones para Strapi v4
- * ✅ Mejor logging para debugging
- */
-
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, Subject, forkJoin, of } from 'rxjs';
 import { catchError, map, tap, switchMap } from 'rxjs/operators';
 import { environment } from '../environments/environment';
-
-// ============================================
-// INTERFACES
-// ============================================
 
 export interface Client {
   id?: number;
@@ -140,16 +126,12 @@ export interface EmissionResponse {
   providedIn: 'root'
 })
 export class InvoiceService {
-  private apiUrl = environment.apiUrl;
+  private readonly apiUrl = environment.apiUrl;
   
   private clientsUpdatedSource = new Subject<boolean>();
   clientsUpdated$ = this.clientsUpdatedSource.asObservable();
 
   constructor(private http: HttpClient) {}
-
-  // ============================================
-  // HEADERS CON AUTENTICACIÓN
-  // ============================================
 
   private getHeaders(): HttpHeaders {
     const token = localStorage.getItem('authToken');
@@ -158,10 +140,6 @@ export class InvoiceService {
       'Authorization': token ? `Bearer ${token}` : ''
     });
   }
-
-  // ============================================
-  // CLIENTES
-  // ============================================
 
   getClients(params?: {
     search?: string;
@@ -188,10 +166,6 @@ export class InvoiceService {
     );
   }
 
-  // ============================================
-  // PRODUCTOS
-  // ============================================
-
   getProducts(params?: {
     search?: string;
     page?: number;
@@ -217,51 +191,28 @@ export class InvoiceService {
     );
   }
 
-  // ============================================
-  // FACTURAS - MÉTODO PRINCIPAL CORREGIDO
-  // ============================================
-
-  /**
-   * 🆕 MÉTODO CORRECTO: Crear factura con items en secuencia
-   * Este es el ÚNICO método que debes usar desde el componente
-   */
   createInvoiceComplete(invoice: Invoice): Observable<{ 
     invoice: Invoice; 
     items: InvoiceItem[] 
   }> {
-    console.log('📦 [SERVICE] Iniciando creación completa de factura...');
-    console.log('📋 Invoice data:', invoice);
-
-    // PASO 1: Preparar payload de la factura (SIN items)
     const invoicePayload = this.prepareInvoicePayload(invoice);
-    console.log('✅ Payload de factura preparado:', invoicePayload);
 
-    // PASO 2: Crear la factura primero
     return this.http.post<SingleResponse<Invoice>>(
       `${this.apiUrl}/api/invoices`,
       { data: invoicePayload },
       { headers: this.getHeaders() }
     ).pipe(
-      tap(response => {
-        console.log('✅ [1/2] Factura creada con ID:', response.data.id);
-      }),
-      
-      // PASO 3: Crear los items uno por uno
       switchMap(invoiceResponse => {
         const invoiceId = invoiceResponse.data.id!;
         const itemsToCreate = invoice.invoice_items || [];
 
         if (itemsToCreate.length === 0) {
-          console.log('⚠️ No hay items para crear');
           return of({ 
             invoice: invoiceResponse.data, 
             items: [] as InvoiceItem[] 
           });
         }
 
-        console.log(`📦 [2/2] Creando ${itemsToCreate.length} items...`);
-
-        // Crear todos los items en paralelo
         const itemCreationObservables = itemsToCreate.map((item, index) => 
           this.createSingleItem(invoiceId, item, index)
         );
@@ -270,48 +221,32 @@ export class InvoiceService {
           map(createdItems => ({
             invoice: invoiceResponse.data,
             items: createdItems
-          })),
-          tap(result => {
-            console.log(`✅ Factura completa creada:`, {
-              invoiceId: result.invoice.id,
-              itemsCount: result.items.length
-            });
-          })
+          }))
         );
       }),
-
       catchError(error => {
-        console.error('❌ Error en createInvoiceComplete:', error);
         throw error;
       })
     );
   }
 
-  /**
-   * 🔧 Crear un item individual
-   */
   private createSingleItem(
     invoiceId: number, 
     item: InvoiceItem, 
     index: number
   ): Observable<InvoiceItem> {
-    console.log(`  📦 Creando item ${index + 1}:`, item.nombre_producto);
-
     const itemPayload = {
       ...item,
-      invoice: invoiceId, // ⚠️ CRÍTICO: Vincular al invoice
+      invoice: invoiceId,
       product: typeof item.product === 'object' ? (item.product as any).id : item.product,
       orden: index + 1
     };
 
-    // Limpiar campos undefined
     Object.keys(itemPayload).forEach(key => {
       if ((itemPayload as any)[key] === undefined) {
         delete (itemPayload as any)[key];
       }
     });
-
-    console.log(`  📤 Payload del item ${index + 1}:`, itemPayload);
 
     return this.http.post<SingleResponse<InvoiceItem>>(
       `${this.apiUrl}/api/invoice-items`,
@@ -319,46 +254,32 @@ export class InvoiceService {
       { headers: this.getHeaders() }
     ).pipe(
       map(response => response.data),
-      tap(createdItem => {
-        console.log(`  ✅ Item ${index + 1} creado con ID:`, createdItem.id);
-      }),
       catchError(error => {
-        console.error(`  ❌ Error creando item ${index + 1}:`, error);
         throw error;
       })
     );
   }
 
-  /**
-   * 🔧 Preparar payload de factura (sin items)
-   */
   private prepareInvoicePayload(invoice: Invoice): any {
     const { invoice_items, ...invoiceData } = invoice;
 
-    // 🆕 Generar número de factura único si no existe
     if (!invoiceData.numero_factura) {
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       invoiceData.numero_factura = `FV-${timestamp}-${random}`;
-      console.log('🔢 Número de factura generado:', invoiceData.numero_factura);
     }
 
-    // Asegurar que client sea solo el ID
     if (typeof invoiceData.client === 'object' && invoiceData.client !== null) {
       invoiceData.client = (invoiceData.client as any).id;
     }
 
-    // Asegurar que numering_range sea solo el ID
     if (invoiceData.numering_range && typeof invoiceData.numering_range === 'object') {
       invoiceData.numering_range = (invoiceData.numering_range as any).id;
     }
 
-    // Convertir fechas a ISO string SIN agregar 'T00:00:00.000Z'
-    // Strapi puede manejar formatos de fecha simples
     if (invoiceData.fecha_emision instanceof Date) {
       invoiceData.fecha_emision = invoiceData.fecha_emision.toISOString();
     } else if (typeof invoiceData.fecha_emision === 'string' && !invoiceData.fecha_emision.includes('T')) {
-      // Si es string sin hora, agregar la hora
       invoiceData.fecha_emision = new Date(invoiceData.fecha_emision + 'T12:00:00.000Z').toISOString();
     }
 
@@ -370,7 +291,6 @@ export class InvoiceService {
       }
     }
 
-    // Limpiar campos undefined
     Object.keys(invoiceData).forEach(key => {
       if ((invoiceData as any)[key] === undefined) {
         delete (invoiceData as any)[key];
@@ -380,16 +300,11 @@ export class InvoiceService {
     return invoiceData;
   }
 
-  // ============================================
-  // FACTURAS - OTRAS OPERACIONES
-  // ============================================
-
   getInvoices(params?: {
     page?: number;
     pageSize?: number;
     estado?: string;
   }): Observable<PaginatedResponse<Invoice>> {
-    // Usar la ruta personalizada que no requiere autenticación de Strapi
     const queryParams: any = {
       page: params?.page || 1,
       pageSize: params?.pageSize || 25,
@@ -411,9 +326,7 @@ export class InvoiceService {
   getInvoice(id: number): Observable<SingleResponse<Invoice>> {
     return this.http.get<SingleResponse<Invoice>>(
       `${this.apiUrl}/api/invoices/detail/${id}`,
-      {
-        headers: this.getHeaders()
-      }
+      { headers: this.getHeaders() }
     );
   }
 
@@ -427,75 +340,37 @@ export class InvoiceService {
     );
   }
 
-  deleteInvoice(id: number): Observable<any> {
+  deleteInvoice(id: number | string): Observable<any> {
     return this.http.delete(
       `${this.apiUrl}/api/invoices/${id}`,
       { headers: this.getHeaders() }
     );
   }
 
-  // ============================================
-  // EMISIÓN A FACTUS
-  // ============================================
-
   emitInvoice(invoiceId: number): Observable<EmissionResponse> {
-    console.log(`🚀 [SERVICE] Emitiendo factura ${invoiceId} a Factus...`);
-
     return this.http.post<EmissionResponse>(
       `${this.apiUrl}/api/factus/emit-invoice`,
       { invoiceId },
       { headers: this.getHeaders() }
     ).pipe(
-      tap(response => {
-        if (response.success) {
-          console.log('✅ Factura emitida exitosamente');
-        } else {
-          console.error('❌ Error emitiendo factura:', response.error);
-        }
-      }),
       catchError(error => {
-        console.error('❌ ERROR HTTP en emit-invoice:', error);
         throw error;
       })
     );
   }
 
-  // ============================================
-  // DESCARGAR PDF
-  // ============================================
-
-  /**
-   * Descargar PDF de una factura emitida
-   * @param documentId - ID del documento de Factus
-   */
   downloadPDF(documentId: string | number): Observable<{ success: boolean; data?: string; error?: string }> {
-    console.log(`📥 [SERVICE] Descargando PDF del documento ${documentId}...`);
-
     return this.http.get<{ success: boolean; data?: string; error?: string }>(
       `${this.apiUrl}/api/factus/download-pdf/${documentId}`,
       { headers: this.getHeaders() }
     ).pipe(
-      tap(response => {
-        if (response.success) {
-          console.log('✅ PDF descargado exitosamente');
-        } else {
-          console.error('❌ Error descargando PDF:', response.error);
-        }
-      }),
       catchError(error => {
-        console.error('❌ ERROR HTTP en download-pdf:', error);
         throw error;
       })
     );
   }
 
-  /**
-   * Descargar PDF como archivo (blob)
-   * @param documentId - ID del documento de Factus
-   */
   downloadPDFAsBlob(documentId: string | number): Observable<Blob> {
-    console.log(`📥 [SERVICE] Descargando PDF como archivo del documento ${documentId}...`);
-
     return this.http.get(
       `${this.apiUrl}/api/factus/download-pdf/${documentId}?returnBlob=true`,
       { 
@@ -504,17 +379,13 @@ export class InvoiceService {
       }
     ).pipe(
       switchMap((response: any) => {
-        // Verificar si la respuesta es JSON con una URL de redirección
         if (response instanceof Blob && response.type === 'application/json') {
-          // Convertir blob a texto para verificar si es una redirección
           return new Observable<Blob>(observer => {
             const reader = new FileReader();
             reader.onload = () => {
               try {
                 const json = JSON.parse(reader.result as string);
                 if (json.redirect && json.url) {
-                  // Abrir la URL en una nueva pestaña
-                  console.log('🔗 Redirigiendo a URL pública:', json.url);
                   window.open(json.url, '_blank');
                   observer.error({ message: 'redirect', url: json.url });
                 } else {
@@ -531,19 +402,11 @@ export class InvoiceService {
         }
         return of(response);
       }),
-      tap(() => {
-        console.log('✅ Archivo PDF descargado exitosamente');
-      }),
       catchError(error => {
-        console.error('❌ ERROR HTTP en download-pdf-blob:', error);
         throw error;
       })
     );
   }
-
-  // ============================================
-  // CÁLCULOS
-  // ============================================
 
   calculateItemTotals(item: InvoiceItem): {
     descuento_valor: number;
@@ -604,11 +467,40 @@ export class InvoiceService {
     };
   }
 
-  // ============================================
-  // NOTIFICACIONES
-  // ============================================
-
   notifyClientsUpdated(): void {
     this.clientsUpdatedSource.next(true);
+  }
+
+  getInvoicesWithoutClient(): Observable<{
+    data: {
+      invoicesWithoutClient: Array<{
+        id: number;
+        numero_factura: string;
+        fecha_emision: string;
+        total: number;
+      }>;
+      totalWithoutClient: number;
+      availableClients: Array<{
+        id: number;
+        nombre_completo: string;
+        numero_documento: string;
+      }>;
+    };
+  }> {
+    return this.http.get<any>(
+      `${this.apiUrl}/api/invoices/without-client`,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  assignClientToInvoice(invoiceId: number, clientId: number): Observable<{
+    data: Invoice;
+    message: string;
+  }> {
+    return this.http.post<any>(
+      `${this.apiUrl}/api/invoices/assign-client`,
+      { invoiceId, clientId },
+      { headers: this.getHeaders() }
+    );
   }
 }
