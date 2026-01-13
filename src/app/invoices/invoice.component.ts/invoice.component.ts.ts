@@ -190,14 +190,13 @@ export class CreateInvoiceComponent implements OnInit {
     this.items.push(this.createItemFormGroup());
   }
 
-  removeItem(index: number): void {
-    if (this.items.length > 1) {
-      this.items.removeAt(index);
-      this.calculateTotals();
-    } else {
-      this.showError('Debe haber al menos un ítem');
-    }
+ removeItem(index: number): void {
+  this.items.removeAt(index);
+  if (this.items.length === 0) {
+    this.addItem();
   }
+  this.calculateTotals();
+}
 
   duplicateItem(index: number): void {
     const item = this.items.at(index).value;

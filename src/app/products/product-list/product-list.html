@@ -84,46 +84,6 @@
       </div>
     </div>
 
-    <!-- Filtros y búsqueda -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <!-- Búsqueda -->
-        <div class="md:col-span-2">
-          <div class="relative">
-            <input type="text" 
-                   [(ngModel)]="searchTerm"
-                   (keyup.enter)="search()"
-                   placeholder="Buscar por nombre, código o descripción..."
-                   class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            <svg class="absolute left-3 top-3 w-5 h-5 text-gray-400" fill="none" stroke="currentColor">
-              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
-        </div>
-
-        <!-- Filtro por tipo -->
-        <div>
-          <select [(ngModel)]="filterType" 
-                  (change)="applyFilters()"
-                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">Todos los tipos</option>
-            <option value="producto">Productos</option>
-            <option value="servicio">Servicios</option>
-          </select>
-        </div>
-
-        <!-- Filtro por estado -->
-        <div>
-          <select [(ngModel)]="filterStatus" 
-                  (change)="applyFilters()"
-                  class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">Todos los estados</option>
-            <option value="true">Activos</option>
-            <option value="false">Inactivos</option>
-          </select>
-        </div>
-      </div>
-    </div>
 
     <!-- Tabla / Lista de productos -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
