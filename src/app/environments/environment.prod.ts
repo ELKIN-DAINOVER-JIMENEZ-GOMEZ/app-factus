@@ -2,7 +2,7 @@
 
 export const environment = {
   production: true,
-  apiUrl: 'https://active-fellowship-a83501a050.strapiapp.com',
+  apiUrl: 'https://strapi-factus-production.up.railway.app',
   appName: 'FactusCMS',
   version: '1.0.0'
 };
