@@ -40,6 +40,12 @@ export class CreditNoteListComponent implements OnInit {
       .subscribe({
         next: (response) => {
           this.creditNotes = response.data;
+          // Debug: verificar datos de clientes con detalle
+          console.log('📋 Notas crédito recibidas:', this.creditNotes.length);
+          this.creditNotes.forEach(nc => {
+            const invoiceInfo = typeof nc.invoice === 'object' && nc.invoice !== null ? nc.invoice.factus_id : nc.invoice;
+            console.log(`  NC ${nc.id}: client =`, JSON.stringify(nc.client), '| invoice =', invoiceInfo);
+          });
           this.totalItems = response.meta.pagination.total;
           this.totalPages = response.meta.pagination.pageCount;
           this.isLoading = false;
