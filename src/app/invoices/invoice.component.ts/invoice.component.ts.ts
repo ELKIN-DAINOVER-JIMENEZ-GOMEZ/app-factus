@@ -106,6 +106,10 @@ export class CreateInvoiceComponent implements OnInit {
     return this.items.controls;
   }
 
+  trackByIndex(index: number, item: any): number {
+    return index;
+  }
+
   loadClients(search?: string): void {
     this.searchingClients = true;
     this.invoiceService.getClients({ search: search || '', pageSize: 50 }).subscribe({
@@ -292,6 +296,12 @@ export class CreateInvoiceComponent implements OnInit {
   }
 
   saveAndEmit(): void {
+    // Prevenir doble clic
+    if (this.emitting || this.saving) {
+      console.log('⚠️ Operación ya en progreso, ignorando clic');
+      return;
+    }
+
     if (!this.validateForm()) return;
 
     const preValidation = this.validateBeforeEmission();
@@ -445,29 +455,42 @@ export class CreateInvoiceComponent implements OnInit {
   private prepareInvoiceData(): Invoice {
     const formValue = this.invoiceForm.value;
 
-    const invoice_items = formValue.invoice_items.map((item: any, index: number) => {
-      const { _tempId, ...cleanItem } = item;
-      
-      const productId = typeof cleanItem.product === 'object' 
-        ? cleanItem.product?.id 
-        : cleanItem.product;
+    // DEBUG: Ver estado ANTES del filtro
+    console.log('🔴 Items en FormArray (ANTES del filtro):', formValue.invoice_items.length);
+    console.log('🔴 Detalle:', formValue.invoice_items.map((i: any) => ({
+      nombre: i.nombre_producto,
+      producto_id: i.product
+    })));
 
-      return {
-        ...cleanItem,
-        product: productId,
-        orden: index + 1,
-        cantidad: Number(cleanItem.cantidad),
-        precio_unitario: Number(cleanItem.precio_unitario),
-        descuento_porcentaje: Number(cleanItem.descuento_porcentaje || 0),
-        descuento_valor: Number(cleanItem.descuento_valor || 0),
-        subtotal: Number(cleanItem.subtotal),
-        iva_porcentaje: Number(cleanItem.iva_porcentaje || 0),
-        iva_valor: Number(cleanItem.iva_valor || 0),
-        ico_porcentaje: Number(cleanItem.ico_porcentaje || 0),
-        ico_valor: Number(cleanItem.ico_valor || 0),
-        total_item: Number(cleanItem.total_item),
-      };
-    });
+    // Filtrar items vacíos (sin producto seleccionado) y mapear
+    const invoice_items = formValue.invoice_items
+      .filter((item: any) => item.product && item.nombre_producto) // Solo items con producto
+      .map((item: any, index: number) => {
+        const { _tempId, ...cleanItem } = item;
+        
+        const productId = typeof cleanItem.product === 'object' 
+          ? cleanItem.product?.id 
+          : cleanItem.product;
+
+        return {
+          ...cleanItem,
+          product: productId,
+          orden: index + 1,
+          cantidad: Number(cleanItem.cantidad),
+          precio_unitario: Number(cleanItem.precio_unitario),
+          descuento_porcentaje: Number(cleanItem.descuento_porcentaje || 0),
+          descuento_valor: Number(cleanItem.descuento_valor || 0),
+          subtotal: Number(cleanItem.subtotal),
+          iva_porcentaje: Number(cleanItem.iva_porcentaje || 0),
+          iva_valor: Number(cleanItem.iva_valor || 0),
+          ico_porcentaje: Number(cleanItem.ico_porcentaje || 0),
+          ico_valor: Number(cleanItem.ico_valor || 0),
+          total_item: Number(cleanItem.total_item),
+        };
+      });
+
+    // Debug: verificar cuántos items se envían
+    console.log('📦 Items a enviar:', invoice_items.length, invoice_items.map((i: any) => i.nombre_producto));
 
     // Manejar correctamente el clientId
     let clientId: number | undefined;

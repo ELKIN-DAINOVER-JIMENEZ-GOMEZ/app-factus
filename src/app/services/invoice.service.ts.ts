@@ -197,6 +197,10 @@ export class InvoiceService {
   }> {
     const invoicePayload = this.prepareInvoicePayload(invoice);
 
+    // DEBUG: Ver cuántos items se van a crear
+    console.log('🔍 Items a crear:', invoice.invoice_items?.length);
+    console.log('🔍 Items detalle:', invoice.invoice_items?.map(i => i.nombre_producto));
+
     return this.http.post<SingleResponse<Invoice>>(
       `${this.apiUrl}/api/invoices`,
       { data: invoicePayload },
@@ -248,13 +252,19 @@ export class InvoiceService {
       }
     });
 
+    console.log(`📤 Creando item ${index + 1}:`, itemPayload.nombre_producto);
+
     return this.http.post<SingleResponse<InvoiceItem>>(
       `${this.apiUrl}/api/invoice-items`,
       { data: itemPayload },
       { headers: this.getHeaders() }
     ).pipe(
-      map(response => response.data),
+      map(response => {
+        console.log(`✅ Item ${index + 1} creado con ID:`, response.data.id);
+        return response.data;
+      }),
       catchError(error => {
+        console.error(`❌ Error creando item ${index + 1}:`, error);
         throw error;
       })
     );
